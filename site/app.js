@@ -9,11 +9,14 @@
 // Если тариф потребует ограничение по домену — настраивается в ЛК DaData.
 const DADATA_TOKEN = '9b5e9fcd88ba22b1bc16fc61eb2780db4d5b9862';
 
-// TODO(integration): вписать реальный адрес Cloudflare Worker после деплоя.
-const WORKER_URL = 'https://REPLACE-ME.workers.dev/submit';
+// TODO(integration): вписать реальный адрес Yandex Cloud Function после деплоя
+// (см. yandex-function/README.md, шаг 6) — обычно вида
+// 'https://functions.yandexcloud.net/xxxxxxxxxxxxxxxxxxxx'.
+const FUNCTION_BASE_URL = 'https://REPLACE-ME.functions.yandexcloud.net';
 
-// Эндпоинт /track того же Worker — выводится из WORKER_URL, отдельно менять не нужно.
-const TRACK_URL = WORKER_URL.replace(/\/submit$/, '/track');
+// Роутинг на стороне функции — через query-параметр, а не путь (см. yandex-function/README.md).
+const WORKER_URL = FUNCTION_BASE_URL + '?action=submit';
+const TRACK_URL = FUNCTION_BASE_URL + '?action=track';
 
 const DADATA_PARTY_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party';
 const DADATA_ADDRESS_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
@@ -78,10 +81,13 @@ function init() {
   state.dealId = new URLSearchParams(window.location.search).get('deal') || null;
   renderDealNotice();
 
+  wireApplicantType();
   wireOrgFieldMirroring();
   wireIkzToggle();
   wireInnLookup();
   wireAddressSuggest();
+  wireOriginalsDelivery();
+  wireFlEmployment();
   wireMetricsTracking();
 
   const addBtn = document.getElementById('add-listener-btn');
@@ -135,25 +141,82 @@ async function loadCourses() {
  * Блок 1: организация — автоподбор по ИНН и адрес-подсказки
  * ===================================================================== */
 
-function wireOrgFieldMirroring() {
-  const fullNameInput = document.getElementById('org-fullname');
-  const headFioInput = document.getElementById('org-headfio');
-  const postalOrgNameInput = document.getElementById('postal-orgname');
-  const postalHeadFioInput = document.getElementById('postal-headfio');
+// Тип заявителя (ЮЛ/ФЛ) — переключает видимые секции блока 1 и подписи полей.
+function wireApplicantType() {
+  const radios = document.querySelectorAll('input[name="applicantType"]');
+  const legalOnlyEls = document.querySelectorAll('.legal-entity-only');
+  const individualOnlyEls = document.querySelectorAll('.individual-only');
+  const orgHeadFioLabel = document.getElementById('org-headfio-label-text');
+  const postalHeadFioLabel = document.getElementById('postal-headfio-label-text');
 
+  function update() {
+    const checked = document.querySelector('input[name="applicantType"]:checked');
+    const isIndividual = !!checked && checked.value === 'individual';
+
+    legalOnlyEls.forEach((el) => { el.hidden = isIndividual; });
+    individualOnlyEls.forEach((el) => { el.hidden = !isIndividual; });
+
+    orgHeadFioLabel.textContent = isIndividual ? 'ФИО' : 'ФИО руководителя';
+    postalHeadFioLabel.textContent = isIndividual ? 'ФИО получателя' : 'ФИО руководителя (получатель)';
+  }
+
+  radios.forEach((r) => r.addEventListener('change', update));
+  update();
+}
+
+// Мутуальный выбор для физлица: указано место работы ИЛИ отмечено "самозанятый/не работаю".
+function wireFlEmployment() {
+  const unemployedCheckbox = document.getElementById('fl-unemployed');
+  const workplaceInput = document.getElementById('fl-workplace');
+
+  unemployedCheckbox.addEventListener('change', () => {
+    if (unemployedCheckbox.checked) {
+      workplaceInput.value = '';
+      workplaceInput.disabled = true;
+    } else {
+      workplaceInput.disabled = false;
+    }
+  });
+}
+
+// Почтовый адрес нужен, только если оригиналы договора отправляются почтой.
+function wireOriginalsDelivery() {
+  const select = document.getElementById('org-originals-delivery');
+  const postalSection = document.getElementById('postal-address-section');
+
+  function update() {
+    postalSection.hidden = select.value !== 'russian_post';
+  }
+
+  select.addEventListener('change', update);
+  update();
+}
+
+function mirrorPostalOrgName() {
+  const fullNameInput = document.getElementById('org-fullname');
+  const postalOrgNameInput = document.getElementById('postal-orgname');
+  if (!postalOrgNameInput.value.trim()) {
+    postalOrgNameInput.value = fullNameInput.value.trim();
+  }
+}
+
+function mirrorPostalHeadFio() {
+  const headFioInput = document.getElementById('org-headfio');
+  const postalHeadFioInput = document.getElementById('postal-headfio');
+  if (!postalHeadFioInput.value.trim()) {
+    postalHeadFioInput.value = headFioInput.value.trim();
+  }
+}
+
+function wireOrgFieldMirroring() {
   // Зеркалим значения в поля почтового адреса, только если те ещё не заполнены
   // вручную — чтобы не заставлять пользователя вводить одно и то же дважды,
   // но и не затирать его правки, если он решил указать другого получателя.
-  fullNameInput.addEventListener('blur', () => {
-    if (!postalOrgNameInput.value.trim()) {
-      postalOrgNameInput.value = fullNameInput.value.trim();
-    }
-  });
-  headFioInput.addEventListener('blur', () => {
-    if (!postalHeadFioInput.value.trim()) {
-      postalHeadFioInput.value = headFioInput.value.trim();
-    }
-  });
+  // Те же функции дополнительно вызываются из applyPartySuggestion() — иначе
+  // автоподстановка по ИНН не долетает до почтового блока: DaData пишет
+  // значение в поле программно, а не через реальный blur пользователя.
+  document.getElementById('org-fullname').addEventListener('blur', mirrorPostalOrgName);
+  document.getElementById('org-headfio').addEventListener('blur', mirrorPostalHeadFio);
 }
 
 function wireIkzToggle() {
@@ -251,6 +314,11 @@ function applyPartySuggestion(suggestion) {
   if (d.management && d.management.name && !headFioInput.value.trim()) {
     headFioInput.value = d.management.name;
   }
+
+  // Значения выше подставлены программно, а не введены пользователем — событие
+  // blur не сработает само, поэтому зеркалирование в почтовый блок вызываем явно.
+  mirrorPostalOrgName();
+  mirrorPostalHeadFio();
 }
 
 function wireAddressSuggest() {
@@ -609,69 +677,92 @@ function markInvalid(el, errors, message) {
 function validateForm() {
   const errors = [];
 
-  const fullName = document.getElementById('org-fullname');
-  if (!fullName.value.trim()) markInvalid(fullName, errors, 'Укажите полное наименование учреждения.');
+  const applicantChecked = document.querySelector('input[name="applicantType"]:checked');
+  if (!applicantChecked) {
+    markInvalid(document.querySelector('input[name="applicantType"]'), errors, 'Укажите, кто подаёт заявку — юрлицо или физлицо.');
+  }
+  const isIndividual = !!applicantChecked && applicantChecked.value === 'individual';
 
-  const inn = document.getElementById('org-inn');
-  const innDigits = onlyDigits(inn.value);
-  if (!innDigits) {
-    markInvalid(inn, errors, 'Укажите ИНН организации.');
-  } else if (innDigits.length !== 10 && innDigits.length !== 12) {
-    markInvalid(inn, errors, 'ИНН должен содержать 10 или 12 цифр.');
+  if (!isIndividual) {
+    const fullName = document.getElementById('org-fullname');
+    if (!fullName.value.trim()) markInvalid(fullName, errors, 'Укажите полное наименование учреждения.');
+
+    const inn = document.getElementById('org-inn');
+    const innDigits = onlyDigits(inn.value);
+    if (!innDigits) {
+      markInvalid(inn, errors, 'Укажите ИНН организации.');
+    } else if (innDigits.length !== 10 && innDigits.length !== 12) {
+      markInvalid(inn, errors, 'ИНН должен содержать 10 или 12 цифр.');
+    }
+
+    const documentType = document.getElementById('org-document-type');
+    if (!documentType.value) markInvalid(documentType, errors, 'Выберите тип документа.');
+
+    const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
+    if (!lawTypeChecked) {
+      markInvalid(document.querySelector('input[name="lawType"]'), errors, 'Укажите закон-основание (44-ФЗ или 223-ФЗ).');
+    }
+
+    const ikzChecked = document.querySelector('input[name="ikzRequired"]:checked');
+    if (!ikzChecked) {
+      markInvalid(document.querySelector('input[name="ikzRequired"]'), errors, 'Укажите, нужен ли ИКЗ.');
+    } else if (ikzChecked.value === 'yes') {
+      const ikzNumber = document.getElementById('org-ikz-number');
+      if (!ikzNumber.value.trim()) markInvalid(ikzNumber, errors, 'Укажите номер ИКЗ.');
+    }
+
+    const fundingSource = document.getElementById('org-funding-source');
+    if (!fundingSource.value.trim()) markInvalid(fundingSource, errors, 'Укажите источник финансирования услуг.');
+  } else {
+    const workplace = document.getElementById('fl-workplace');
+    const unemployed = document.getElementById('fl-unemployed');
+    if (!unemployed.checked && !workplace.value.trim()) {
+      markInvalid(workplace, errors, 'Укажите место работы или отметьте «Самозанятый(ая) или временно не работаю».');
+    }
   }
 
-  const documentType = document.getElementById('org-document-type');
-  if (!documentType.value) markInvalid(documentType, errors, 'Выберите тип документа.');
+  const originalsDelivery = document.getElementById('org-originals-delivery');
+  if (!originalsDelivery.value) markInvalid(originalsDelivery, errors, 'Выберите способ получения оригиналов договора.');
 
-  const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
-  if (!lawTypeChecked) {
-    markInvalid(document.querySelector('input[name="lawType"]'), errors, 'Укажите закон-основание (44-ФЗ или 223-ФЗ).');
+  if (originalsDelivery.value === 'russian_post') {
+    const postalIndex = document.getElementById('postal-index');
+    const postalIndexDigits = onlyDigits(postalIndex.value);
+    if (!postalIndexDigits) {
+      markInvalid(postalIndex, errors, 'Укажите индекс почтового адреса.');
+    } else if (postalIndexDigits.length !== 6) {
+      markInvalid(postalIndex, errors, 'Индекс должен содержать 6 цифр.');
+    }
+
+    const postalAddressLine = document.getElementById('postal-address');
+    if (!postalAddressLine.value.trim()) markInvalid(postalAddressLine, errors, 'Укажите почтовый адрес (улица, дом).');
+
+    if (!isIndividual) {
+      const postalOrgName = document.getElementById('postal-orgname');
+      if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
+    }
+
+    const postalHeadFio = document.getElementById('postal-headfio');
+    if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
   }
-
-  const ikzChecked = document.querySelector('input[name="ikzRequired"]:checked');
-  if (!ikzChecked) {
-    markInvalid(document.querySelector('input[name="ikzRequired"]'), errors, 'Укажите, нужен ли ИКЗ.');
-  } else if (ikzChecked.value === 'yes') {
-    const ikzNumber = document.getElementById('org-ikz-number');
-    if (!ikzNumber.value.trim()) markInvalid(ikzNumber, errors, 'Укажите номер ИКЗ.');
-  }
-
-  const fundingSource = document.getElementById('org-funding-source');
-  if (!fundingSource.value.trim()) markInvalid(fundingSource, errors, 'Укажите источник финансирования услуг.');
-
-  const postalIndex = document.getElementById('postal-index');
-  const postalIndexDigits = onlyDigits(postalIndex.value);
-  if (!postalIndexDigits) {
-    markInvalid(postalIndex, errors, 'Укажите индекс почтового адреса.');
-  } else if (postalIndexDigits.length !== 6) {
-    markInvalid(postalIndex, errors, 'Индекс должен содержать 6 цифр.');
-  }
-
-  const postalOrgName = document.getElementById('postal-orgname');
-  if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
-
-  const postalHeadFio = document.getElementById('postal-headfio');
-  if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
 
   const headFio = document.getElementById('org-headfio');
-  if (!headFio.value.trim()) markInvalid(headFio, errors, 'Укажите ФИО руководителя.');
+  if (!headFio.value.trim()) {
+    markInvalid(headFio, errors, isIndividual ? 'Укажите ФИО.' : 'Укажите ФИО руководителя.');
+  }
 
   const email = document.getElementById('org-email');
   if (!email.value.trim()) {
     markInvalid(email, errors, 'Укажите email для связи.');
   } else if (!isValidEmail(email.value)) {
-    markInvalid(email, errors, 'Email организации указан в неверном формате.');
+    markInvalid(email, errors, 'Email указан в неверном формате.');
   }
 
   const phone = document.getElementById('org-phone');
   if (!phone.value.trim()) {
     markInvalid(phone, errors, 'Укажите телефон для связи.');
   } else if (!isValidPhoneDigits(phone.value)) {
-    markInvalid(phone, errors, 'Телефон организации указан в неверном формате.');
+    markInvalid(phone, errors, 'Телефон указан в неверном формате.');
   }
-
-  const originalsDelivery = document.getElementById('org-originals-delivery');
-  if (!originalsDelivery.value) markInvalid(originalsDelivery, errors, 'Выберите способ получения оригиналов договора.');
 
   const rows = Array.from(document.querySelectorAll('.listener-row'));
   if (rows.length === 0) {
@@ -754,30 +845,44 @@ function renderErrors(errors) {
  * ===================================================================== */
 
 function buildPayload() {
+  const applicantChecked = document.querySelector('input[name="applicantType"]:checked');
+  const applicantType = applicantChecked ? applicantChecked.value : null;
+  const isIndividual = applicantType === 'individual';
+
   const ikzChecked = document.querySelector('input[name="ikzRequired"]:checked');
-  const ikzRequired = !!ikzChecked && ikzChecked.value === 'yes';
+  const ikzRequired = !isIndividual && !!ikzChecked && ikzChecked.value === 'yes';
   const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
   const comment = document.getElementById('org-comment').value.trim();
+  const originalsDelivery = document.getElementById('org-originals-delivery').value;
+  const needsPostalAddress = originalsDelivery === 'russian_post';
 
   const organization = {
-    fullName: document.getElementById('org-fullname').value.trim(),
-    inn: onlyDigits(document.getElementById('org-inn').value),
-    kpp: document.getElementById('org-kpp').value.trim() || null,
-    address: document.getElementById('org-address').value.trim() || null,
-    documentType: document.getElementById('org-document-type').value,
-    lawType: lawTypeChecked ? lawTypeChecked.value : null,
-    ikzRequired: ikzRequired,
+    applicantType,
+
+    fullName: isIndividual ? null : document.getElementById('org-fullname').value.trim(),
+    inn: isIndividual ? null : onlyDigits(document.getElementById('org-inn').value),
+    kpp: isIndividual ? null : document.getElementById('org-kpp').value.trim() || null,
+    address: isIndividual ? null : document.getElementById('org-address').value.trim() || null,
+    documentType: isIndividual ? null : document.getElementById('org-document-type').value,
+    lawType: isIndividual ? null : (lawTypeChecked ? lawTypeChecked.value : null),
+    ikzRequired: isIndividual ? null : ikzRequired,
     ikzNumber: ikzRequired ? document.getElementById('org-ikz-number').value.trim() : null,
-    fundingSource: document.getElementById('org-funding-source').value.trim(),
-    postalAddress: {
+    fundingSource: isIndividual ? null : document.getElementById('org-funding-source').value.trim() || null,
+
+    workplace: isIndividual ? document.getElementById('fl-workplace').value.trim() || null : null,
+    selfEmployedOrUnemployed: isIndividual ? document.getElementById('fl-unemployed').checked : null,
+
+    postalAddress: needsPostalAddress ? {
       index: onlyDigits(document.getElementById('postal-index').value),
-      orgName: document.getElementById('postal-orgname').value.trim(),
+      address: document.getElementById('postal-address').value.trim(),
+      orgName: isIndividual ? null : document.getElementById('postal-orgname').value.trim(),
       headFio: document.getElementById('postal-headfio').value.trim(),
-    },
+    } : null,
+
     headFio: document.getElementById('org-headfio').value.trim(),
     email: document.getElementById('org-email').value.trim(),
     phone: normalizePhone(document.getElementById('org-phone').value),
-    originalsDelivery: document.getElementById('org-originals-delivery').value,
+    originalsDelivery,
     comment: comment || null,
   };
 

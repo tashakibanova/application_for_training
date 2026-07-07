@@ -1,0 +1,10 @@
+{
+  "name": "zayavka-function",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Yandex Cloud Function: приём заявки на обучение (site) -> Bitrix24 / Google Sheets. Прототип, не production.",
+  "main": "index.js",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

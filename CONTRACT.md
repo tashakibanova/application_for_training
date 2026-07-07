@@ -4,7 +4,7 @@
 
 Компоненты:
 - `site/` — статичная форма (HTML/CSS/JS, без сборки)
-- `worker/` — Cloudflare Worker (serverless-прокси)
+- `yandex-function/` — Yandex Cloud Function (serverless-прокси; изначально был Cloudflare Worker, заменён — Cloudflare недоступен без VPN у заказчика)
 - `scripts/` — генератор `site/courses.json` из Б24
 - `sheets/` — Google Apps Script (Web App), приёмник в Google Sheets
 
@@ -49,14 +49,17 @@
 
 ---
 
-## 2. POST `site` → `worker` — `POST /submit`
+## 2. POST `site` → `yandex-function` — `POST ?action=submit`
 
 Тело запроса (`Content-Type: application/json`):
+
+Пример для юридического лица (`applicantType: "legal_entity"`):
 
 ```json
 {
   "dealId": "12345",
   "organization": {
+    "applicantType": "legal_entity",
     "fullName": "МБОУ СОШ №1",
     "inn": "7701234567",
     "kpp": "770101001",
@@ -66,15 +69,18 @@
     "ikzRequired": true,
     "ikzNumber": "223110123456712345100100000000000",
     "fundingSource": "Средства местного бюджета",
+    "workplace": null,
+    "selfEmployedOrUnemployed": null,
     "postalAddress": {
       "index": "123456",
+      "address": "г. Москва, ул. Ленина, д. 1",
       "orgName": "МБОУ СОШ №1",
       "headFio": "Иванова Мария Петровна"
     },
     "headFio": "Иванова Мария Петровна",
     "email": "school1@example.com",
     "phone": "+79991234567",
-    "originalsDelivery": "sbis",
+    "originalsDelivery": "russian_post",
     "comment": "Свободный текст комментария"
   },
   "listeners": [
@@ -97,24 +103,51 @@
 }
 ```
 
+Для физического лица (`applicantType: "individual"`) все поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`) — `null`, вместо них заполнены `workplace`/`selfEmployedOrUnemployed`, а `postalAddress.orgName` — тоже `null` (у физлица нет наименования учреждения-получателя):
+
+```json
+{
+  "organization": {
+    "applicantType": "individual",
+    "fullName": null, "inn": null, "kpp": null, "address": null,
+    "documentType": null, "lawType": null, "ikzRequired": null, "ikzNumber": null, "fundingSource": null,
+    "workplace": "ООО «Ромашка», бухгалтер",
+    "selfEmployedOrUnemployed": false,
+    "postalAddress": { "index": "123456", "address": "...", "orgName": null, "headFio": "Петров Пётр Петрович" },
+    "headFio": "Петров Пётр Петрович",
+    "email": "petrov@example.com",
+    "phone": "+79991234567",
+    "originalsDelivery": "russian_post",
+    "comment": null
+  }
+}
+```
+
 Поля:
 - `dealId`: строка или `null`, если параметра `?deal=` не было в URL.
-- `organization.documentType` ∈ `"contract" | "state_contract" | "municipal_contract"`.
-- `organization.lawType` ∈ `"44-fz" | "223-fz"`.
-- `organization.ikzRequired`: boolean; `ikzNumber` обязателен, только если `true`.
-- `organization.originalsDelivery` ∈ `"sbis" | "kontur"`.
+- `organization.applicantType` ∈ `"legal_entity" | "individual"` — определяет, какие поля обязательны (см. ниже).
+- Поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`) — заполнены и обязательны только при `applicantType === "legal_entity"`, иначе все `null`.
+- `organization.documentType` ∈ `"contract" | "state_contract" | "municipal_contract"` | `null`.
+- `organization.lawType` ∈ `"44-fz" | "223-fz"` | `null`.
+- `organization.ikzRequired`: boolean | `null`; `ikzNumber` обязателен, только если `true`.
+- `organization.workplace`: строка или `null` — заполняется только при `applicantType === "individual"`, необязательно (может быть пустым, если указан `selfEmployedOrUnemployed: true`).
+- `organization.selfEmployedOrUnemployed`: boolean | `null` — только при `applicantType === "individual"`; при отправке обязательно `workplace` ИЛИ `selfEmployedOrUnemployed === true`.
+- `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"`.
+- `organization.postalAddress`: объект или `null` — заполняется и обязателен, **только если** `originalsDelivery === "russian_post"`, иначе `null`.
+  - `postalAddress.address` — сам адрес (улица/дом), обязателен вместе с `index`/`headFio`.
+  - `postalAddress.orgName` — наименование учреждения-получателя; заполняется только при `applicantType === "legal_entity"`, иначе `null`.
 - `listeners[].position`: строка или `null` (только для курсов с `category != null`).
 - `listeners[].reason` ∈ `"primary" | "regular" | "extraordinary"` или `null` (только для курсов с `category != null`).
 
-Ответ Worker: `200 { "ok": true, "target": "deal" | "sheet" }` или `4xx/5xx { "ok": false, "error": "..." }`.
+Ответ функции: `200 { "ok": true, "target": "deal" | "sheet" }` или `4xx/5xx { "ok": false, "error": "..." }`.
 
-xlsx, который генерирует Worker из `listeners`, — один лист «Слушатели», колонки строго в порядке:
+xlsx, который генерирует функция из `listeners`, — один лист «Слушатели», колонки строго в порядке:
 `Курс | Кол-во часов | Дата проведения | ФИО слушателя | Email | Личный телефон | Должность | Причина прохождения`
 (последние две — пустые строки, если категория курса не требует их).
 
 ---
 
-## 3. POST `site` → `worker` — `POST /track` (best-effort, `navigator.sendBeacon`)
+## 3. POST `site` → `yandex-function` — `POST ?action=track` (best-effort, `navigator.sendBeacon`)
 
 Шлётся при `visibilitychange`/`beforeunload`, если форма начата, но не отправлена. Тело:
 
@@ -126,13 +159,13 @@ xlsx, который генерирует Worker из `listeners`, — один 
 }
 ```
 
-Worker пишет это как строку «не завершено» в лист «Метрики эксперимента» (см. §5). Best-effort — ошибки не логируются пользователю, ответ не важен (`sendBeacon` не читает тело).
+Функция пишет это как строку «не завершено» в лист «Метрики эксперимента» (см. §5). Best-effort — ошибки не логируются пользователю, ответ не важен (`sendBeacon` не читает тело).
 
 ---
 
-## 4. POST `worker` → Apps Script Web App
+## 4. POST `yandex-function` → Apps Script Web App
 
-URL и секрет — в env Worker (`SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_SECRET`). Формат тела всегда одинаковый конверт:
+URL и секрет — в переменных окружения функции (`SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_SECRET`). Формат тела всегда одинаковый конверт:
 
 ```json
 {
@@ -158,7 +191,7 @@ URL и секрет — в env Worker (`SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_SEC
   "rawPayloadJson": "{...весь исходный payload как строка, для ручной разборки...}"
 }
 ```
-(xlsx в этом случае Worker кладёт вложением в тот же комментарий не может — сделки нет; файл, если нужно сохранить, можно закодировать как base64 в отдельном поле `xlsxBase64`, но для прототипа обязателен только `rawPayloadJson`.)
+(xlsx в этом случае функция кладёт вложением в тот же комментарий не может — сделки нет; файл, если нужно сохранить, можно закодировать как base64 в отдельном поле `xlsxBase64`, но для прототипа обязателен только `rawPayloadJson`.)
 
 ### 4.2 `sheet: "metrics"` → лист «Метрики эксперимента»
 
@@ -178,15 +211,16 @@ URL и секрет — в env Worker (`SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_SEC
 
 ---
 
-## 5. Переменные окружения Worker (`wrangler secret put ...`)
+## 5. Переменные окружения `yandex-function` (`--environment` при деплое, см. `yandex-function/README.md`)
 
 | Имя | Назначение |
 |---|---|
 | `BITRIX_WEBHOOK_URL` | входящий вебхук Б24 (права `crm`) |
 | `SHEETS_WEBHOOK_URL` | URL Apps Script Web App (`/exec`) |
 | `SHEETS_WEBHOOK_SECRET` | общий секрет, который Apps Script проверяет в `secret` |
+| `ALLOWED_ORIGIN` | домен(ы) статичной формы для CORS |
 
-DaData-ключ используется прямо в браузере (см. `site/`), не проходит через Worker — если тариф требует ограничение по домену, а не по ключу в коде, это настраивается в личном кабинете DaData, ключ всё равно виден в клиентском JS (это ожидаемо и приемлемо для прототипа с бесплатным тарифом).
+DaData-ключ используется прямо в браузере (см. `site/`), не проходит через `yandex-function` — если тариф требует ограничение по домену, а не по ключу в коде, это настраивается в личном кабинете DaData, ключ всё равно виден в клиентском JS (это ожидаемо и приемлемо для прототипа с бесплатным тарифом).
 
 ---
 
@@ -196,4 +230,6 @@ DaData-ключ используется прямо в браузере (см. `
 |---|---|
 | `BITRIX_WEBHOOK_URL` | тот же вебхук, права `catalog` (чтение) |
 
-Категории (`labor_safety`/`fire_safety`/`first_aid`) в Б24 не хранятся напрямую — скрипт определяет категорию по ключевым словам в названии секции/товара (см. README в `scripts/`) и оставляет `category: null`, если не распознал; список ключевых слов должен быть легко редактируемым в начале файла скрипта.
+Источник курсов — **iblockId 21** («Товарный каталог CRM»), отфильтрованный по конкретным разделам (ЦДО КПК/ПП в продаже, ЕРЛ Сколково/Сколково: ПП, ЕРЛ Логопедия/дефектология, ЕРЛ Охрана труда — id разделов зашиты в константу `COURSE_SECTIONS` в начале `scripts/export-catalog.js`). Часы почти всегда зашиты в название товара («... (108 часов)») и извлекаются регуляркой, отдельного поля для часов в карточке товара нет.
+
+Категория (`labor_safety`/`fire_safety`/`first_aid`) определяется гибридно: в первую очередь по разделу (например, раздел «ЕРЛ. Охрана труда» → `labor_safety` — тексты названий там **не обязательно** содержат слова «охрана труда»), и дополнительно по ключевым словам в названии как запасной вариант для курсов вне выделенных разделов. Оба списка редактируются в начале `scripts/export-catalog.js`.

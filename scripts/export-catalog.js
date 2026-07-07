@@ -4,9 +4,14 @@
 /**
  * export-catalog.js
  *
- * Разовый CLI-скрипт: тянет каталог товаров (курсов) из Битрикс24 через входящий
- * вебхук (метод catalog.product.list), маппит в схему CONTRACT.md §1 и пишет
- * результат в site/courses.json.
+ * Разовый CLI-скрипт: тянет каталог курсов из Битрикс24 через входящий вебхук
+ * и пишет результат в site/courses.json по схеме CONTRACT.md §1.
+ *
+ * Источник — iblockId 21 ("Товарный каталог CRM"), отфильтрованный по разделам
+ * из COURSE_SECTIONS ниже. Это единственный надёжный способ выбрать именно
+ * курсы: сам каталог iblockId 21 общий на весь Б24-аккаунт (там же, например,
+ * лежит одежда и прочие непрофильные товары), а нужные курсы разложены по
+ * разделам ЦДО/ЕРЛ.
  *
  * Запуск:
  *   BITRIX_WEBHOOK_URL=https://your.bitrix24.ru/rest/1/xxxxxxxx/ node export-catalog.js [путь-к-файлу]
@@ -15,27 +20,34 @@
  */
 
 // ---------------------------------------------------------------------------
-// НАСТРОЙКИ, КОТОРЫЕ, СКОРЕЕ ВСЕГО, ПРИДЁТСЯ ПОДКОРРЕКТИРОВАТЬ ПОД КОНКРЕТНЫЙ
-// КАТАЛОГ Б24 — см. README.md, раздел "Если часы не подхватились".
+// НАСТРОЙКИ, КОТОРЫЕ, СКОРЕЕ ВСЕГО, ПРИДЁТСЯ ПОДКОРРЕКТИРОВАТЬ СО ВРЕМЕНЕМ —
+// см. README.md, раздел "Если список курсов поменялся".
 // ---------------------------------------------------------------------------
 
-// Имя поля товара, где может лежать количество часов курса.
-// В стандартном catalog.product.list такого поля нет "из коробки" — это либо
-// одно из PROPERTY_* полей карточки товара (если включены свойства
-// в торговом каталоге), либо часы придётся вписывать в это поле каталога
-// вручную/другим способом. Значение ниже — только отправная точка.
-const HOURS_PROPERTY_CODE = 'PROPERTY_HOURS';
+// Разделы iblockId 21, которые считаются актуальным каталогом курсов для формы.
+// Уточнено вручную (2026-07-07) по факту навигации в Б24: ЦДО -> ЦДО КПК в
+// продаже и ЦДО ПП в продаже, ЕРЛ Сколково (+ ЕРЛ Сколково: ПП), ЕРЛ
+// Логопедия/дефектология, ЕРЛ Охрана труда.
+const COURSE_SECTIONS = {
+  719: { name: 'ЦДО КПК В продаже', category: null },
+  721: { name: 'ЦДО ПП В продаже', category: null },
+  1204: { name: 'ЕРЛ. Логопедия/дефектология', category: null },
+  1252: { name: 'ЕРЛ. Охрана труда', category: 'labor_safety' },
+  1308: { name: 'ЕРЛ Сколково', category: null },
+  1330: { name: 'ЕРЛ Сколково: ПП', category: null },
+};
 
-// Дополнительные поля товара, которые стоит попробовать как источник часов,
-// если основное свойство выше не найдено (порядок — приоритет проверки).
-const HOURS_FALLBACK_FIELDS = ['PROPERTY_HOURS', 'PROPERTY_130', 'PROPERTY_CHASY'];
-
-// Ключевые слова (в нижнем регистре) в названии товара -> категория курса.
-// Схема категорий строго по CONTRACT.md §1: labor_safety | fire_safety | first_aid | null.
-// Порядок проверки — сверху вниз, первое совпадение выигрывает.
+// Категория по разделу (см. выше) — основной, надёжный сигнал: названия курсов
+// охраны труда часто НЕ содержат слов "охрана труда" (например, "Безопасные
+// методы и приёмы выполнения газоопасных работ"), поэтому определять категорию
+// только по тексту названия недостаточно.
+//
+// Ключевые слова — вторичный, дополняющий сигнал: ловит курсы по пожарной
+// безопасности/первой помощи, если они появятся вне выделенного раздела, или
+// новые разделы, которые ещё не добавлены в COURSE_SECTIONS выше.
 const CATEGORY_KEYWORDS = [
-  { category: 'labor_safety', keywords: ['охрана труда'] },
-  { category: 'fire_safety', keywords: ['пожарн'] },
+  { category: 'labor_safety', keywords: ['охрана труда', 'охраны труда'] },
+  { category: 'fire_safety', keywords: ['пожарн', 'огневых работ', 'пожароопасных работ'] },
   { category: 'first_aid', keywords: ['первой помощи', 'первую помощь'] },
 ];
 
@@ -56,8 +68,15 @@ function getWebhookUrl() {
   return url.endsWith('/') ? url : url + '/';
 }
 
-function detectCategory(name) {
-  const lower = (name || '').toLowerCase();
+function normalize(s) {
+  return (s || '').toLowerCase().replace(/ё/g, 'е');
+}
+
+function detectCategory(name, sectionId) {
+  const sectionCategory = COURSE_SECTIONS[sectionId] && COURSE_SECTIONS[sectionId].category;
+  if (sectionCategory) return sectionCategory;
+
+  const lower = normalize(name);
   for (const { category, keywords } of CATEGORY_KEYWORDS) {
     if (keywords.some((kw) => lower.includes(kw))) {
       return category;
@@ -66,64 +85,39 @@ function detectCategory(name) {
   return null;
 }
 
-function extractHours(product) {
-  // 1. Явное свойство HOURS_PROPERTY_CODE, если Б24 вернул его прямо в товаре.
-  if (product[HOURS_PROPERTY_CODE] !== undefined && product[HOURS_PROPERTY_CODE] !== null) {
-    const parsed = parseHoursValue(product[HOURS_PROPERTY_CODE]);
-    if (parsed !== null) return parsed;
-  }
-
-  // 2. Перебор запасных полей.
-  for (const field of HOURS_FALLBACK_FIELDS) {
-    if (product[field] !== undefined && product[field] !== null) {
-      const parsed = parseHoursValue(product[field]);
-      if (parsed !== null) return parsed;
-    }
-  }
-
-  // 3. Некоторые каталоги Б24 отдают свойства в виде массива PROPERTY_VALUES
-  // или объекта PROPERTIES — на всякий случай пробуем поискать там что-то
-  // похожее на "часы" по имени свойства.
-  const propsContainer = product.PROPERTY_VALUES || product.PROPERTIES;
-  if (propsContainer && typeof propsContainer === 'object') {
-    for (const key of Object.keys(propsContainer)) {
-      if (/hour|час/i.test(key)) {
-        const value = propsContainer[key];
-        const raw = value && typeof value === 'object' && 'value' in value ? value.value : value;
-        const parsed = parseHoursValue(raw);
-        if (parsed !== null) return parsed;
-      }
-    }
-  }
-
-  return null;
-}
-
-function parseHoursValue(value) {
-  if (value === null || value === undefined || value === '') return null;
-  const num = Number(String(value).replace(',', '.').match(/[\d.]+/)?.[0]);
+// Часы почти всегда зашиты прямо в название товара: "... (108 ЧАСОВ)",
+// "... (16 часов). СПЕЦИАЛЬНЫЙ" и т.п. Отдельного поля "часы" в карточке
+// товара нет (проверено на реальном каталоге — есть только безымянные
+// property1223.. свойства, в основном пустые).
+function extractHours(name) {
+  const match = normalize(name).match(/\((\d+(?:[.,]\d+)?)\s*час/);
+  if (!match) return null;
+  const num = Number(match[1].replace(',', '.'));
   return Number.isFinite(num) ? num : null;
 }
 
 function mapProduct(product) {
+  const name = (product.name || product.NAME || '').trim();
   return {
-    id: String(product.ID ?? product.id ?? ''),
-    name: product.NAME ?? product.name ?? '',
-    hours: extractHours(product),
-    category: detectCategory(product.NAME ?? product.name ?? ''),
+    id: String(product.id ?? product.ID ?? ''),
+    name,
+    hours: extractHours(name),
+    category: detectCategory(name, product.iblockSectionId ?? product.IBLOCK_SECTION_ID),
   };
 }
 
 async function fetchAllProducts(webhookUrl) {
   const endpoint = webhookUrl + 'catalog.product.list';
+  const sectionIds = Object.keys(COURSE_SECTIONS).map(Number);
   const products = [];
   let start = 0;
 
   while (true) {
     const body = {
-      select: ['ID', 'NAME', HOURS_PROPERTY_CODE, ...HOURS_FALLBACK_FIELDS],
+      select: ['id', 'iblockId', 'name', 'iblockSectionId'],
+      filter: { iblockId: 21, iblockSectionId: sectionIds, active: 'Y' },
       start,
-      order: { ID: 'ASC' },
+      order: { id: 'ASC' },
     };
 
     const response = await fetch(endpoint, {
@@ -134,26 +128,16 @@ async function fetchAllProducts(webhookUrl) {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(
-        `Б24 REST вернул HTTP ${response.status} на catalog.product.list: ${text}`
-      );
+      throw new Error(`Б24 REST вернул HTTP ${response.status} на catalog.product.list: ${text}`);
     }
 
     const json = await response.json();
 
     if (json.error) {
-      throw new Error(
-        `Б24 REST вернул ошибку: ${json.error} ${json.error_description || ''}`
-      );
+      throw new Error(`Б24 REST вернул ошибку: ${json.error} ${json.error_description || ''}`);
     }
 
-    // Стандартный формат ответа catalog.* методов Б24:
-    // { result: { products: [...] }, total: N, next: 50 }
-    // (в некоторых версиях REST — result: [...] напрямую, без обёртки products).
-    const pageProducts = Array.isArray(json.result)
-      ? json.result
-      : json.result?.products ?? [];
-
+    const pageProducts = Array.isArray(json.result) ? json.result : json.result?.products ?? [];
     products.push(...pageProducts);
 
     console.error(`Загружено ${products.length} из ${json.total ?? '?'} товаров...`);
@@ -172,24 +156,26 @@ async function main() {
   const webhookUrl = getWebhookUrl();
   const outputPath = process.argv[2] || require('path').join(__dirname, '..', 'site', 'courses.json');
 
-  console.error(`Запрос catalog.product.list по вебхуку: ${webhookUrl}catalog.product.list`);
+  console.error(`Запрос catalog.product.list (iblockId 21, разделы: ${Object.keys(COURSE_SECTIONS).join(', ')})...`);
 
   const products = await fetchAllProducts(webhookUrl);
-  const courses = products.map(mapProduct);
+  const courses = products.map(mapProduct).filter((c) => c.id && c.name);
 
   const missingHours = courses.filter((c) => c.hours === null);
   if (missingHours.length > 0) {
     console.error(
-      `Внимание: у ${missingHours.length} из ${courses.length} курсов не удалось определить hours ` +
+      `Внимание: у ${missingHours.length} из ${courses.length} курсов не удалось найти часы в названии ` +
         `(см. README.md, раздел "Если часы не подхватились"). Примеры ID: ` +
         missingHours.slice(0, 5).map((c) => c.id).join(', ')
     );
   }
 
-  const unmatchedCategory = courses.filter((c) => c.category === null).length;
-  console.error(
-    `Категория не распознана по ключевым словам у ${unmatchedCategory} из ${courses.length} курсов (это нормально для курсов повышения квалификации общего профиля).`
-  );
+  const byCategory = courses.reduce((acc, c) => {
+    const key = c.category || 'null';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  console.error('Категории: ' + JSON.stringify(byCategory));
 
   const fs = require('fs');
   const outDir = require('path').dirname(outputPath);

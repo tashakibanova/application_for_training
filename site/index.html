@@ -18,14 +18,14 @@
       <img class="hero__icon" src="assets/rocket.png" alt="" aria-hidden="true">
       <div class="hero__text">
         <h1 class="hero__title">Заявка на обучение</h1>
-        <p class="hero__sub">Заполните данные организации и список слушателей — менеджер подготовит договор и свяжется с вами.</p>
+        <p class="hero__sub">Заполните данные заявителя и список слушателей — менеджер подготовит договор и свяжется с вами.</p>
       </div>
     </div>
 
     <ol class="stepper" aria-hidden="true">
       <li class="stepper__item">
         <span class="stepper__num">1</span>
-        <span class="stepper__label">Данные организации</span>
+        <span class="stepper__label">Данные заявителя</span>
       </li>
       <li class="stepper__sep"></li>
       <li class="stepper__item">
@@ -49,48 +49,60 @@
 
   <form id="application-form" novalidate>
 
-    <!-- ==================== БЛОК 1: ОРГАНИЗАЦИЯ ==================== -->
+    <!-- ==================== БЛОК 1: ЗАЯВИТЕЛЬ ==================== -->
     <section class="card" aria-labelledby="org-heading">
       <h2 id="org-heading" class="card__title">
         <span class="card__num">1</span>
-        <span class="card__title-text">Данные организации</span>
+        <span class="card__title-text">Данные заявителя</span>
         <img class="card__icon" src="assets/target.png" alt="" aria-hidden="true">
       </h2>
 
-      <div class="subsection">
+      <fieldset class="field">
+        <legend>Кто подаёт заявку <span class="req">*</span></legend>
+        <div class="radio-row">
+          <label class="radio-label">
+            <input type="radio" name="applicantType" value="legal_entity" required> Юридическое лицо / учреждение
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="applicantType" value="individual"> Физическое лицо
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="subsection legal-entity-only">
         <h3 class="subsection__title">Реквизиты учреждения</h3>
+
+        <div class="field field--relative">
+          <label for="org-inn">ИНН <span class="req">*</span></label>
+          <input type="text" id="org-inn" name="inn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр">
+          <p class="hint" id="inn-status" aria-live="polite"></p>
+        </div>
 
         <div class="field">
           <label for="org-fullname">Полное наименование учреждения <span class="req">*</span></label>
-          <input type="text" id="org-fullname" name="fullName" autocomplete="organization" required>
+          <input type="text" id="org-fullname" name="fullName" autocomplete="organization">
         </div>
 
         <div class="grid-2">
           <div class="field">
-            <label for="org-inn">ИНН <span class="req">*</span></label>
-            <input type="text" id="org-inn" name="inn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр" required>
-            <p class="hint" id="inn-status" aria-live="polite"></p>
-          </div>
-
-          <div class="field">
             <label for="org-kpp">КПП</label>
             <input type="text" id="org-kpp" name="kpp" inputmode="numeric" maxlength="9" placeholder="подставится по ИНН, можно поправить">
           </div>
-        </div>
 
-        <div class="field field--relative">
-          <label for="org-address">Юридический адрес</label>
-          <input type="text" id="org-address" name="address" autocomplete="off" placeholder="начните вводить или дождитесь подбора по ИНН">
-          <ul id="org-address-suggestions" class="suggestions" hidden></ul>
+          <div class="field field--relative">
+            <label for="org-address">Юридический адрес</label>
+            <input type="text" id="org-address" name="address" autocomplete="off" placeholder="начните вводить или дождитесь подбора по ИНН">
+            <ul id="org-address-suggestions" class="suggestions" hidden></ul>
+          </div>
         </div>
       </div>
 
-      <div class="subsection">
+      <div class="subsection legal-entity-only">
         <h3 class="subsection__title">Условия договора</h3>
 
         <div class="field">
           <label for="org-document-type">Тип документа <span class="req">*</span></label>
-          <select id="org-document-type" name="documentType" required>
+          <select id="org-document-type" name="documentType">
             <option value="" disabled selected>Выберите тип документа</option>
             <option value="contract">Договор</option>
             <option value="state_contract">Контракт</option>
@@ -103,7 +115,7 @@
             <legend>Закон-основание <span class="req">*</span></legend>
             <div class="radio-row">
               <label class="radio-label">
-                <input type="radio" name="lawType" value="44-fz" required> 44-ФЗ
+                <input type="radio" name="lawType" value="44-fz"> 44-ФЗ
               </label>
               <label class="radio-label">
                 <input type="radio" name="lawType" value="223-fz"> 223-ФЗ
@@ -115,7 +127,7 @@
             <legend>Нужен ИКЗ? <span class="req">*</span></legend>
             <div class="radio-row">
               <label class="radio-label">
-                <input type="radio" name="ikzRequired" value="yes" required> Да
+                <input type="radio" name="ikzRequired" value="yes"> Да
               </label>
               <label class="radio-label">
                 <input type="radio" name="ikzRequired" value="no"> Нет
@@ -131,28 +143,58 @@
 
         <div class="field">
           <label for="org-funding-source">Источник финансирования услуг <span class="req">*</span></label>
-          <input type="text" id="org-funding-source" name="fundingSource" required placeholder="например, средства местного бюджета">
+          <input type="text" id="org-funding-source" name="fundingSource" placeholder="например, средства местного бюджета">
         </div>
       </div>
 
+      <div class="subsection individual-only" hidden>
+        <h3 class="subsection__title">Занятость</h3>
+
+        <div class="field">
+          <label for="fl-workplace">Место работы</label>
+          <input type="text" id="fl-workplace" name="workplace" placeholder="Организация, где вы работаете">
+        </div>
+
+        <label class="radio-label">
+          <input type="checkbox" id="fl-unemployed" name="selfEmployedOrUnemployed"> Самозанятый(ая) или временно не работаю
+        </label>
+      </div>
+
       <div class="subsection">
+        <h3 class="subsection__title">Получение договора</h3>
+
+        <div class="field">
+          <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
+          <select id="org-originals-delivery" name="originalsDelivery" required>
+            <option value="" disabled selected>Выберите способ</option>
+            <option value="sbis">СБИС</option>
+            <option value="kontur">Контур</option>
+            <option value="russian_post">Почтой России</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="subsection" id="postal-address-section" hidden>
         <h3 class="subsection__title">Почтовый адрес для отправки документов</h3>
 
-        <div class="grid-2">
-          <div class="field">
-            <label for="postal-index">Индекс <span class="req">*</span></label>
-            <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр" required>
-          </div>
-
-          <div class="field">
-            <label for="postal-orgname">Наименование учреждения <span class="req">*</span></label>
-            <input type="text" id="postal-orgname" name="postalOrgName" required placeholder="подставится из наименования учреждения">
-          </div>
+        <div class="field">
+          <label for="postal-index">Индекс <span class="req">*</span></label>
+          <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр">
         </div>
 
         <div class="field">
-          <label for="postal-headfio">ФИО руководителя (получатель) <span class="req">*</span></label>
-          <input type="text" id="postal-headfio" name="postalHeadFio" required placeholder="подставится из поля ниже">
+          <label for="postal-address">Адрес <span class="req">*</span></label>
+          <input type="text" id="postal-address" name="postalAddressLine" placeholder="Улица, дом, квартира/офис">
+        </div>
+
+        <div class="field legal-entity-only" id="postal-orgname-field">
+          <label for="postal-orgname">Наименование учреждения <span class="req">*</span></label>
+          <input type="text" id="postal-orgname" name="postalOrgName" placeholder="подставится из наименования учреждения">
+        </div>
+
+        <div class="field">
+          <label for="postal-headfio"><span id="postal-headfio-label-text">ФИО руководителя (получатель)</span> <span class="req">*</span></label>
+          <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится из поля ниже">
         </div>
       </div>
 
@@ -160,7 +202,7 @@
         <h3 class="subsection__title">Контактное лицо</h3>
 
         <div class="field">
-          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
+          <label for="org-headfio"><span id="org-headfio-label-text">ФИО руководителя</span> <span class="req">*</span></label>
           <input type="text" id="org-headfio" name="headFio" autocomplete="name" required>
         </div>
 
@@ -174,15 +216,6 @@
             <label for="org-phone">Телефон <span class="req">*</span></label>
             <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67" required>
           </div>
-        </div>
-
-        <div class="field">
-          <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
-          <select id="org-originals-delivery" name="originalsDelivery" required>
-            <option value="" disabled selected>Выберите способ</option>
-            <option value="sbis">СБИС</option>
-            <option value="kontur">Контур</option>
-          </select>
         </div>
 
         <div class="field">
