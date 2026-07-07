@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Заявка на обучение</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="page">
+  <header class="page-header">
+    <div class="brand">
+      <img class="brand__logo" src="assets/logo.png" alt="Каменный город">
+    </div>
+
+    <div class="hero">
+      <img class="hero__icon" src="assets/rocket.png" alt="" aria-hidden="true">
+      <div class="hero__text">
+        <h1 class="hero__title">Заявка на обучение</h1>
+        <p class="hero__sub">Заполните данные организации и список слушателей — менеджер подготовит договор и свяжется с вами.</p>
+      </div>
+    </div>
+
+    <ol class="stepper" aria-hidden="true">
+      <li class="stepper__item">
+        <span class="stepper__num">1</span>
+        <span class="stepper__label">Данные организации</span>
+      </li>
+      <li class="stepper__sep"></li>
+      <li class="stepper__item">
+        <span class="stepper__num">2</span>
+        <span class="stepper__label">Слушатели</span>
+      </li>
+    </ol>
+
+    <p id="deal-notice" class="deal-notice" role="status"></p>
+  </header>
+
+  <div id="form-errors" class="form-errors" role="alert" hidden>
+    <p class="form-errors__title">Пожалуйста, исправьте:</p>
+    <ul id="form-errors-list"></ul>
+  </div>
+
+  <div id="submit-error" class="submit-error" role="alert" hidden>
+    <p></p>
+    <button type="button" id="submit-error-close" class="btn btn--ghost btn--small">Скрыть</button>
+  </div>
+
+  <form id="application-form" novalidate>
+
+    <!-- ==================== БЛОК 1: ОРГАНИЗАЦИЯ ==================== -->
+    <section class="card" aria-labelledby="org-heading">
+      <h2 id="org-heading" class="card__title">
+        <span class="card__num">1</span>
+        <span class="card__title-text">Данные организации</span>
+        <img class="card__icon" src="assets/target.png" alt="" aria-hidden="true">
+      </h2>
+
+      <div class="subsection">
+        <h3 class="subsection__title">Реквизиты учреждения</h3>
+
+        <div class="field">
+          <label for="org-fullname">Полное наименование учреждения <span class="req">*</span></label>
+          <input type="text" id="org-fullname" name="fullName" autocomplete="organization" required>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="org-inn">ИНН <span class="req">*</span></label>
+            <input type="text" id="org-inn" name="inn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр" required>
+            <p class="hint" id="inn-status" aria-live="polite"></p>
+          </div>
+
+          <div class="field">
+            <label for="org-kpp">КПП</label>
+            <input type="text" id="org-kpp" name="kpp" inputmode="numeric" maxlength="9" placeholder="подставится по ИНН, можно поправить">
+          </div>
+        </div>
+
+        <div class="field field--relative">
+          <label for="org-address">Юридический адрес</label>
+          <input type="text" id="org-address" name="address" autocomplete="off" placeholder="начните вводить или дождитесь подбора по ИНН">
+          <ul id="org-address-suggestions" class="suggestions" hidden></ul>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection__title">Условия договора</h3>
+
+        <div class="field">
+          <label for="org-document-type">Тип документа <span class="req">*</span></label>
+          <select id="org-document-type" name="documentType" required>
+            <option value="" disabled selected>Выберите тип документа</option>
+            <option value="contract">Договор</option>
+            <option value="state_contract">Контракт</option>
+            <option value="municipal_contract">Муниципальный контракт</option>
+          </select>
+        </div>
+
+        <div class="grid-2">
+          <fieldset class="field">
+            <legend>Закон-основание <span class="req">*</span></legend>
+            <div class="radio-row">
+              <label class="radio-label">
+                <input type="radio" name="lawType" value="44-fz" required> 44-ФЗ
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="lawType" value="223-fz"> 223-ФЗ
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="field">
+            <legend>Нужен ИКЗ? <span class="req">*</span></legend>
+            <div class="radio-row">
+              <label class="radio-label">
+                <input type="radio" name="ikzRequired" value="yes" required> Да
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="ikzRequired" value="no"> Нет
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="field" id="ikz-number-field" hidden>
+          <label for="org-ikz-number">Номер ИКЗ <span class="req">*</span></label>
+          <input type="text" id="org-ikz-number" name="ikzNumber" placeholder="Номер идентификационного кода закупки">
+        </div>
+
+        <div class="field">
+          <label for="org-funding-source">Источник финансирования услуг <span class="req">*</span></label>
+          <input type="text" id="org-funding-source" name="fundingSource" required placeholder="например, средства местного бюджета">
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection__title">Почтовый адрес для отправки документов</h3>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="postal-index">Индекс <span class="req">*</span></label>
+            <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр" required>
+          </div>
+
+          <div class="field">
+            <label for="postal-orgname">Наименование учреждения <span class="req">*</span></label>
+            <input type="text" id="postal-orgname" name="postalOrgName" required placeholder="подставится из наименования учреждения">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="postal-headfio">ФИО руководителя (получатель) <span class="req">*</span></label>
+          <input type="text" id="postal-headfio" name="postalHeadFio" required placeholder="подставится из поля ниже">
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection__title">Контактное лицо</h3>
+
+        <div class="field">
+          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
+          <input type="text" id="org-headfio" name="headFio" autocomplete="name" required>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="org-email">Email <span class="req">*</span></label>
+            <input type="email" id="org-email" name="email" autocomplete="email" required>
+          </div>
+
+          <div class="field">
+            <label for="org-phone">Телефон <span class="req">*</span></label>
+            <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
+          <select id="org-originals-delivery" name="originalsDelivery" required>
+            <option value="" disabled selected>Выберите способ</option>
+            <option value="sbis">СБИС</option>
+            <option value="kontur">Контур</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="org-comment">Дополнительный комментарий</label>
+          <textarea id="org-comment" name="comment" rows="3" placeholder="Необязательно"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== БЛОК 2: СЛУШАТЕЛИ ==================== -->
+    <section class="card card--wide" aria-labelledby="listeners-heading">
+      <h2 id="listeners-heading" class="card__title">
+        <span class="card__num">2</span>
+        <span class="card__title-text">Слушатели</span>
+        <img class="card__icon" src="assets/cap.png" alt="" aria-hidden="true">
+      </h2>
+      <p class="card__lead">Добавьте всех, кого нужно обучить. Для отдельных курсов появятся дополнительные поля — должность и причина прохождения.</p>
+
+      <div class="listeners-table">
+        <div class="listeners-head" aria-hidden="true">
+          <span class="lh lh--course">Курс <span class="req">*</span></span>
+          <span class="lh lh--hours">Часы</span>
+          <span class="lh lh--date">Дата <span class="req">*</span></span>
+          <span class="lh lh--fio">ФИО слушателя <span class="req">*</span></span>
+          <span class="lh lh--email">Email <span class="req">*</span></span>
+          <span class="lh lh--phone">Телефон <span class="req">*</span></span>
+        </div>
+
+        <div id="listeners-list"></div>
+      </div>
+
+      <button type="button" id="add-listener-btn" class="btn btn--secondary">
+        <span class="btn__plus" aria-hidden="true">+</span> Добавить слушателя
+      </button>
+    </section>
+
+    <div class="submit-row">
+      <button type="submit" id="submit-btn" class="btn btn--primary">Отправить заявку</button>
+    </div>
+  </form>
+
+  <div id="success-screen" class="success-screen" hidden>
+    <img class="success-screen__badge" src="assets/star.png" alt="" aria-hidden="true">
+    <div class="success-screen__icon" aria-hidden="true">&#10003;</div>
+    <h2>Заявка отправлена</h2>
+    <p>Спасибо! Мы получили заявку и передали её менеджеру. Он свяжется с вами для уточнения деталей.</p>
+  </div>
+
+  <footer class="page-footer">
+    <p>Если что-то работает не так — сообщите менеджеру, с которым вы общались.</p>
+  </footer>
+</div>
+
+<!-- Шаблон строки слушателя -->
+<template id="listener-row-template">
+  <div class="listener-row card--nested">
+    <div class="listener-row__header">
+      <h3 class="listener-row__title">Слушатель</h3>
+      <button type="button" class="btn btn--ghost btn--small remove-listener-btn">Удалить</button>
+    </div>
+
+    <div class="listener-grid">
+      <div class="field lr-cell lr--course">
+        <label>Курс <span class="req">*</span></label>
+        <input type="text" class="listener-course-search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Начните вводить название курса — например «охрана труда»">
+        <input type="hidden" class="listener-course">
+        <ul class="suggestions listener-course-suggestions" hidden></ul>
+      </div>
+
+      <div class="field lr-cell lr--hours">
+        <label>Часы</label>
+        <input type="text" class="listener-hours" readonly placeholder="—">
+      </div>
+
+      <div class="field lr-cell lr--date">
+        <label>Дата <span class="req">*</span></label>
+        <input type="date" class="listener-date" required>
+      </div>
+
+      <div class="field lr-cell lr--fio">
+        <label>ФИО слушателя (как в паспорте) <span class="req">*</span></label>
+        <input type="text" class="listener-fio" required>
+      </div>
+
+      <div class="field lr-cell lr--email">
+        <label>Email <span class="req">*</span></label>
+        <input type="email" class="listener-email" required>
+      </div>
+
+      <div class="field lr-cell lr--phone">
+        <label>Личный телефон <span class="req">*</span></label>
+        <input type="tel" class="listener-phone" placeholder="+7 999 123-45-67" required>
+      </div>
+
+      <div class="field lr-cell lr--extra listener-position-field" hidden>
+        <label>Должность <span class="req">*</span></label>
+        <input type="text" class="listener-position">
+      </div>
+
+      <fieldset class="field lr-cell lr--extra listener-reason-field" hidden>
+        <legend>Причина прохождения <span class="req">*</span></legend>
+        <div class="radio-row">
+          <label class="radio-label"><input type="radio" class="listener-reason" value="primary"> Первичная</label>
+          <label class="radio-label"><input type="radio" class="listener-reason" value="regular"> Очередная</label>
+          <label class="radio-label"><input type="radio" class="listener-reason" value="extraordinary"> Внеочередная</label>
+        </div>
+      </fieldset>
+    </div>
+  </div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

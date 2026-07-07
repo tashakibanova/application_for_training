@@ -1,0 +1,14 @@
+{
+  "name": "export-catalog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Разовый CLI-скрипт экспорта каталога курсов из Б24 в site/courses.json",
+  "main": "export-catalog.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "export": "node export-catalog.js"
+  }
+}
