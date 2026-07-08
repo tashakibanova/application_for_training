@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 function init() {
   state.dealId = new URLSearchParams(window.location.search).get('deal') || null;
+  wireDealIdInput();
   renderDealNotice();
 
   wireApplicantType();
@@ -103,6 +104,27 @@ function init() {
   loadCourses();
 }
 
+// Поле «ID сделки» — подстраховка на случай, если менеджер не дописал ?deal= в
+// ссылку. Значение обновляет state.dealId вживую (только цифры, до 9 знаков —
+// как ID сделок Б24), чтобы оно гарантированно попало в buildPayload().dealId.
+// Поле необязательное: пустое значение = null, форма отправляется и без него.
+// Если ID пришёл из URL (?deal=) — он же подставляется в это поле, и его можно
+// тут же поправить вручную, если менеджер ошибся; отдельного read-only режима
+// нет специально — единое редактируемое поле проще и для 95% случаев (ссылка
+// работает — просто видно подтверждение ниже) не мешает.
+function wireDealIdInput() {
+  const input = document.getElementById('deal-id-input');
+  if (!input) return;
+
+  if (state.dealId) input.value = onlyDigits(state.dealId);
+
+  input.addEventListener('input', () => {
+    input.value = onlyDigits(input.value).slice(0, 9);
+    state.dealId = input.value || null;
+    renderDealNotice();
+  });
+}
+
 function renderDealNotice() {
   const el = document.getElementById('deal-notice');
   if (state.dealId) {
@@ -111,9 +133,9 @@ function renderDealNotice() {
     el.classList.remove('deal-notice--missing');
     el.hidden = false;
   } else {
-    // Предупреждение об отсутствии сделки полезно только менеджеру, а рядового
-    // пользователя формы оно только пугает — поэтому просто ничего не показываем
-    // (на бэкенде заявка без сделки всё равно уходит в лист «Незакреплённые»).
+    // Нет сделки — подтверждение прячем (плашка-предупреждение только пугает
+    // рядового пользователя; на бэкенде заявка без сделки всё равно уходит в
+    // лист «Незакреплённые»). Соседнее поле ввода ID при этом остаётся видимым.
     el.textContent = '';
     el.hidden = true;
   }

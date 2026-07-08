@@ -34,7 +34,13 @@
       </li>
     </ol>
 
-    <p id="deal-notice" class="deal-notice" role="status"></p>
+    <div class="deal-box">
+      <label class="deal-box__label" for="deal-id-input">ID сделки Битрикс24</label>
+      <input type="text" id="deal-id-input" class="deal-box__input" name="dealId"
+             inputmode="numeric" autocomplete="off" maxlength="9"
+             placeholder="если есть — впишите вручную">
+      <p id="deal-notice" class="deal-notice" role="status" hidden></p>
+    </div>
   </header>
 
   <div id="form-errors" class="form-errors" role="alert" hidden>

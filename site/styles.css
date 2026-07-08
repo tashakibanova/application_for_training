@@ -205,8 +205,55 @@ body {
 }
 
 /* =====================================================================
- * Deal-notice
+ * Deal-box: вторичное поле «ID сделки» для менеджера + подтверждение
  * ===================================================================== */
+
+/* Приглушённая плашка вверху: менеджер вписывает ID сделки Б24 вручную,
+   если он не пришёл в ссылке через ?deal=. Намеренно визуально вторична —
+   мельче и тусклее обязательных полей формы; фирменный градиент лишь как
+   тонкий акцент на левом крае, не как фон. */
+.deal-box {
+  position: relative;
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.deal-box::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--brand-gradient);
+  opacity: 0.7;
+}
+
+.deal-box__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Селектор с .deal-box поднимает специфичность выше глобального
+   input[type="text"]{width:100%} (у них иначе равная специфичность, и
+   побеждал бы глобальный как объявленный позже). */
+.deal-box input.deal-box__input {
+  width: 170px;
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 0.88rem;
+  border-color: var(--border-strong);
+  background: #fff;
+}
 
 .deal-notice {
   margin: 16px 0 0;
@@ -216,6 +263,14 @@ body {
   background: var(--info-bg);
   color: var(--info-text);
   border: 1px solid #f2cbdd;
+}
+
+/* Внутри плашки подтверждение занимает свою строку и компактнее */
+.deal-box .deal-notice {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  padding: 8px 12px;
+  font-size: 0.85rem;
 }
 
 .deal-notice.deal-notice--missing {
