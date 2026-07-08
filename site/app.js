@@ -12,7 +12,7 @@ const DADATA_TOKEN = '9b5e9fcd88ba22b1bc16fc61eb2780db4d5b9862';
 // TODO(integration): вписать реальный адрес Yandex Cloud Function после деплоя
 // (см. yandex-function/README.md, шаг 6) — обычно вида
 // 'https://functions.yandexcloud.net/xxxxxxxxxxxxxxxxxxxx'.
-const FUNCTION_BASE_URL = 'https://REPLACE-ME.functions.yandexcloud.net';
+const FUNCTION_BASE_URL = 'https://functions.yandexcloud.net/d4eb9ra3isfnopa91cov';
 
 // Роутинг на стороне функции — через query-параметр, а не путь (см. yandex-function/README.md).
 const WORKER_URL = FUNCTION_BASE_URL + '?action=submit';
@@ -84,10 +84,12 @@ function init() {
   wireApplicantType();
   wireOrgFieldMirroring();
   wireIkzToggle();
-  wireInnLookup();
+  wireInnAutofill('org-inn', 'inn-status', applyPartySuggestion);
+  wireInnAutofill('fl-inn', 'fl-inn-status', applyWorkplaceSuggestion);
   wireAddressSuggest();
   wireOriginalsDelivery();
   wireFlEmployment();
+  wireCourseModal();
   wireMetricsTracking();
 
   const addBtn = document.getElementById('add-listener-btn');
@@ -104,14 +106,16 @@ function init() {
 function renderDealNotice() {
   const el = document.getElementById('deal-notice');
   if (state.dealId) {
+    // Позитивное подтверждение показываем, оно не запутывает пользователя.
     el.textContent = 'Заявка привязана к сделке № ' + state.dealId;
     el.classList.remove('deal-notice--missing');
+    el.hidden = false;
   } else {
-    el.textContent =
-      'В ссылке не указана сделка — заявка попадёт в общий список необработанных заявок, ' +
-      'менеджер свяжет её со сделкой вручную. Если у вас есть ссылка от менеджера с "?deal=...", ' +
-      'используйте её.';
-    el.classList.add('deal-notice--missing');
+    // Предупреждение об отсутствии сделки полезно только менеджеру, а рядового
+    // пользователя формы оно только пугает — поэтому просто ничего не показываем
+    // (на бэкенде заявка без сделки всё равно уходит в лист «Незакреплённые»).
+    el.textContent = '';
+    el.hidden = true;
   }
 }
 
@@ -164,18 +168,25 @@ function wireApplicantType() {
   update();
 }
 
-// Мутуальный выбор для физлица: указано место работы ИЛИ отмечено "самозанятый/не работаю".
+// Мутуальный выбор для физлица: указаны ИНН и место работы ИЛИ отмечено
+// "самозанятый/не работаю". При отметке чекбокса оба поля очищаются и
+// дизейблятся (и становятся необязательными в validateForm).
 function wireFlEmployment() {
   const unemployedCheckbox = document.getElementById('fl-unemployed');
   const workplaceInput = document.getElementById('fl-workplace');
+  const innInput = document.getElementById('fl-inn');
+  const innStatus = document.getElementById('fl-inn-status');
 
   unemployedCheckbox.addEventListener('change', () => {
-    if (unemployedCheckbox.checked) {
+    const off = unemployedCheckbox.checked;
+    if (off) {
       workplaceInput.value = '';
-      workplaceInput.disabled = true;
-    } else {
-      workplaceInput.disabled = false;
+      innInput.value = '';
+      innStatus.textContent = '';
+      innStatus.className = 'hint';
     }
+    workplaceInput.disabled = off;
+    innInput.disabled = off;
   });
 }
 
@@ -236,15 +247,46 @@ function wireIkzToggle() {
   update();
 }
 
-function wireInnLookup() {
-  const innInput = document.getElementById('org-inn');
-  const statusEl = document.getElementById('inn-status');
+// Общий автоподбор организации по ИНН через DaData. Переиспользуется дважды:
+// для ЮЛ (ИНН учреждения → реквизиты) и для ФЛ (ИНН места работы → «Место
+// работы»). Параметры: id инпута с ИНН, id элемента статуса-подсказки и колбэк,
+// который применяет найденную организацию к нужным полям формы.
+function wireInnAutofill(innInputId, statusElId, applySuggestion) {
+  const innInput = document.getElementById(innInputId);
+  const statusEl = document.getElementById(statusElId);
+  if (!innInput || !statusEl) return;
+
+  const lookup = debounce(async (inn) => {
+    if (DADATA_TOKEN.startsWith('REPLACE-ME')) {
+      statusEl.textContent =
+        'Автоподбор по ИНН недоступен: не задан ключ DaData (см. TODO в app.js). Заполните поля вручную.';
+      statusEl.className = 'hint hint--error';
+      return;
+    }
+    statusEl.textContent = 'Ищем организацию по ИНН...';
+    statusEl.className = 'hint';
+    try {
+      const suggestion = await suggestPartyByInn(inn);
+      if (!suggestion) {
+        statusEl.textContent = 'Организация с таким ИНН не найдена, заполните поля вручную.';
+        statusEl.className = 'hint hint--error';
+        return;
+      }
+      applySuggestion(suggestion);
+      statusEl.textContent = 'Организация найдена, поля подставлены — проверьте и при необходимости поправьте.';
+      statusEl.className = 'hint hint--ok';
+    } catch (err) {
+      console.error('DaData party lookup error:', err);
+      statusEl.textContent = 'Не удалось обратиться к DaData. Заполните поля вручную.';
+      statusEl.className = 'hint hint--error';
+    }
+  }, 500);
 
   innInput.addEventListener('input', () => {
     innInput.value = onlyDigits(innInput.value).slice(0, 12);
     const digits = innInput.value;
     if (digits.length === 10 || digits.length === 12) {
-      lookupByInn(digits, statusEl);
+      lookup(digits);
     } else {
       statusEl.textContent = '';
       statusEl.className = 'hint';
@@ -252,34 +294,13 @@ function wireInnLookup() {
   });
 }
 
-const lookupByInnDebounced = debounce(async (inn, statusEl) => {
-  if (DADATA_TOKEN.startsWith('REPLACE-ME')) {
-    statusEl.textContent =
-      'Автоподбор по ИНН недоступен: не задан ключ DaData (см. TODO в app.js). Заполните поля вручную.';
-    statusEl.className = 'hint hint--error';
-    return;
-  }
-  statusEl.textContent = 'Ищем организацию по ИНН...';
-  statusEl.className = 'hint';
-  try {
-    const suggestion = await suggestPartyByInn(inn);
-    if (!suggestion) {
-      statusEl.textContent = 'Организация с таким ИНН не найдена, заполните поля вручную.';
-      statusEl.className = 'hint hint--error';
-      return;
-    }
-    applyPartySuggestion(suggestion);
-    statusEl.textContent = 'Организация найдена, поля подставлены — проверьте и при необходимости поправьте.';
-    statusEl.className = 'hint hint--ok';
-  } catch (err) {
-    console.error('DaData party lookup error:', err);
-    statusEl.textContent = 'Не удалось обратиться к DaData. Заполните поля вручную.';
-    statusEl.className = 'hint hint--error';
-  }
-}, 500);
-
-function lookupByInn(inn, statusEl) {
-  lookupByInnDebounced(inn, statusEl);
+// Применение найденной по ИНН организации к полю «Место работы» физлица —
+// в отличие от applyPartySuggestion (реквизиты ЮЛ) сюда пишем только название.
+function applyWorkplaceSuggestion(suggestion) {
+  const d = suggestion.data || {};
+  const workplaceInput = document.getElementById('fl-workplace');
+  const fullName = (d.name && (d.name.short_with_opf || d.name.full_with_opf)) || suggestion.value;
+  if (fullName) workplaceInput.value = fullName;
 }
 
 async function suggestPartyByInn(inn) {
@@ -410,7 +431,9 @@ function addListenerRow() {
     radio.name = 'listener-reason-' + listenerRowSeq;
   });
 
-  wireListenerCourseSearch(rowEl);
+  rowEl.querySelector('.listener-course-btn').addEventListener('click', () => {
+    openCourseModal(rowEl);
+  });
 
   rowEl.querySelector('.remove-listener-btn').addEventListener('click', () => {
     rowEl.remove();
@@ -448,147 +471,240 @@ function onListenerCourseChange(rowEl) {
   }
 }
 
-// Каталог может содержать 500+ курсов — обычный <select> тут неюзабелен
-// (особенно на телефоне), поэтому курс выбирается через комбобокс: текстовое
-// поле с поиском по ключевым словам + скрытое поле с реальным courseId
-// (класс .listener-course сохранён на скрытом поле, поэтому весь остальной
-// код — validateForm, buildPayload, onListenerCourseChange — не меняется).
-function wireListenerCourseSearch(rowEl) {
-  const searchInput = rowEl.querySelector('.listener-course-search');
+/* ---------------------------------------------------------------------
+ * Попап выбора курса
+ *
+ * Каталог может содержать 500+ курсов — обычный <select> тут неюзабелен, а
+ * инлайн-дропдаун подсказок закрывался сам при попытке прокрутить список
+ * (window scroll-listener на capture-фазе перехватывал скролл самого списка).
+ * Поэтому выбор курса вынесен в модальное окно: умный поиск по ключевым словам
+ * + вкладки по папкам + фильтр по часам. Скрытое поле .listener-course с
+ * courseId сохранено, поэтому validateForm/buildPayload/onListenerCourseChange
+ * не меняются. Попап закрывается только по явному действию (кнопка, фон,
+ * Escape, выбор курса) — от скролла внутри списка НЕ закрывается.
+ * ------------------------------------------------------------------- */
+
+// Порядок вкладок-папок: сначала в этом «человеческом» порядке, всё, чего тут
+// нет, — в конце по алфавиту. Реальный список берётся из данных (courses.json),
+// не хардкодится.
+const COURSE_FOLDER_ORDER = [
+  'Курсы повышения квалификации',
+  'Программы профессиональной переподготовки',
+  'Охрана труда',
+  'Логопедия и дефектология',
+  'Сколково',
+  'Сколково: ПП',
+];
+const COURSE_MODAL_MAX = 60; // сколько совпадений максимум показываем в списке
+
+const courseModal = {
+  activeRow: null,
+  folder: null, // null = «Все папки»
+  hours: null, // null = любые часы; число — конкретные часы; 'none' — часы не указаны
+};
+
+function normalizeCourseText(s) {
+  return (s || '').toLowerCase().replace(/ё/g, 'е').trim();
+}
+
+// Уникальные папки из данных, отсортированные по COURSE_FOLDER_ORDER.
+function courseFolders() {
+  const present = [...new Set(state.courses.map((c) => c.folder).filter(Boolean))];
+  present.sort((a, b) => {
+    const ia = COURSE_FOLDER_ORDER.indexOf(a);
+    const ib = COURSE_FOLDER_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b, 'ru');
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return present;
+}
+
+// Курсы текущей папки (или весь каталог, если папка не выбрана) — база и для
+// списка часов, и для поиска. Фильтр по часам сюда НЕ входит.
+function courseFolderPool() {
+  if (!courseModal.folder) return state.courses;
+  return state.courses.filter((c) => c.folder === courseModal.folder);
+}
+
+// "Умный" поиск: все слова запроса должны встретиться в названии (порядок не
+// важен), ранжирование — чем раньше первое совпадение и короче название, тем
+// выше. Фильтры по папке и часам комбинируются с поиском по И (AND).
+function matchCoursesInPool(pool, query) {
+  const filtered = pool.filter((c) => {
+    if (courseModal.hours === null) return true;
+    if (courseModal.hours === 'none') return c.hours == null;
+    return c.hours === courseModal.hours;
+  });
+
+  const tokens = normalizeCourseText(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return filtered.slice(0, COURSE_MODAL_MAX);
+  }
+
+  const scored = [];
+  for (const course of filtered) {
+    const name = normalizeCourseText(course.name);
+    if (tokens.every((t) => name.includes(t))) {
+      const firstIdx = Math.min(...tokens.map((t) => name.indexOf(t)));
+      scored.push({ course, firstIdx });
+    }
+  }
+  scored.sort((a, b) => a.firstIdx - b.firstIdx || a.course.name.length - b.course.name.length);
+  return scored.slice(0, COURSE_MODAL_MAX).map((s) => s.course);
+}
+
+function wireCourseModal() {
+  const modal = document.getElementById('course-modal');
+  const search = document.getElementById('course-modal-search');
+  if (!modal || !search) return;
+
+  modal.querySelectorAll('[data-course-close]').forEach((el) => {
+    el.addEventListener('click', closeCourseModal);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeCourseModal();
+  });
+
+  search.addEventListener('input', debounce(renderCourseResults, 120));
+}
+
+function openCourseModal(rowEl) {
+  const modal = document.getElementById('course-modal');
+  const search = document.getElementById('course-modal-search');
+  courseModal.activeRow = rowEl;
+  courseModal.folder = null;
+  courseModal.hours = null;
+  search.value = '';
+
+  renderCourseTabs();
+  renderCourseHours();
+  renderCourseResults();
+
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  // фокус в поле поиска — сразу можно печатать
+  setTimeout(() => search.focus(), 0);
+}
+
+function closeCourseModal() {
+  const modal = document.getElementById('course-modal');
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  courseModal.activeRow = null;
+}
+
+function renderCourseTabs() {
+  const tabsEl = document.getElementById('course-modal-tabs');
+  tabsEl.innerHTML = '';
+
+  const makeTab = (label, folderValue) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'course-tab' + (courseModal.folder === folderValue ? ' is-active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      courseModal.folder = folderValue;
+      courseModal.hours = null; // список часов зависит от папки — сбрасываем
+      renderCourseTabs();
+      renderCourseHours();
+      renderCourseResults();
+    });
+    tabsEl.appendChild(btn);
+  };
+
+  makeTab('Все папки', null);
+  courseFolders().forEach((f) => makeTab(f, f));
+}
+
+function renderCourseHours() {
+  const hoursEl = document.getElementById('course-modal-hours');
+  hoursEl.innerHTML = '';
+
+  const pool = courseFolderPool();
+  const hasNumeric = new Set();
+  let hasNull = false;
+  pool.forEach((c) => {
+    if (c.hours == null) hasNull = true;
+    else hasNumeric.add(c.hours);
+  });
+  const numeric = [...hasNumeric].sort((a, b) => a - b);
+
+  const makeChip = (label, value) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const active = value === null ? courseModal.hours === null : courseModal.hours === value;
+    btn.className = 'course-hour-chip' + (active ? ' is-active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      courseModal.hours = value;
+      renderCourseHours();
+      renderCourseResults();
+    });
+    hoursEl.appendChild(btn);
+  };
+
+  makeChip('Любые часы', null);
+  numeric.forEach((h) => makeChip(h + ' ч.', h));
+  if (hasNull) makeChip('Без часов', 'none');
+}
+
+function renderCourseResults() {
+  const listEl = document.getElementById('course-modal-results');
+  const countEl = document.getElementById('course-modal-count');
+  const search = document.getElementById('course-modal-search');
+  listEl.innerHTML = '';
+
+  const matches = matchCoursesInPool(courseFolderPool(), search.value);
+
+  if (matches.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'course-result course-result--empty';
+    li.textContent = 'Курсы не найдены — измените запрос, папку или фильтр по часам';
+    listEl.appendChild(li);
+    countEl.textContent = '';
+    return;
+  }
+
+  countEl.textContent =
+    matches.length >= COURSE_MODAL_MAX
+      ? `Показаны первые ${COURSE_MODAL_MAX} — уточните запрос, чтобы увидеть остальные`
+      : `Найдено: ${matches.length}`;
+
+  matches.forEach((course) => {
+    const li = document.createElement('li');
+    li.className = 'course-result';
+    const name = document.createElement('span');
+    name.className = 'course-result__name';
+    name.textContent = course.name;
+    const meta = document.createElement('span');
+    meta.className = 'course-result__meta';
+    meta.textContent =
+      (course.hours != null ? course.hours + ' ч.' : 'часы не указаны') +
+      (course.folder ? ' · ' + course.folder : '');
+    li.appendChild(name);
+    li.appendChild(meta);
+    li.addEventListener('click', () => selectCourseForRow(course));
+    listEl.appendChild(li);
+  });
+}
+
+function selectCourseForRow(course) {
+  const rowEl = courseModal.activeRow;
+  if (!rowEl) return;
   const hiddenInput = rowEl.querySelector('.listener-course');
-  const list = rowEl.querySelector('.listener-course-suggestions');
-  const MAX_RESULTS = 40;
-  let activeIndex = -1;
-  let currentMatches = [];
+  const btnText = rowEl.querySelector('.listener-course-btn__text');
+  const btn = rowEl.querySelector('.listener-course-btn');
 
-  function normalize(s) {
-    return (s || '').toLowerCase().replace(/ё/g, 'е').trim();
-  }
+  hiddenInput.value = course.id;
+  btnText.textContent = course.name;
+  btn.classList.add('is-selected');
+  btn.classList.remove('field-invalid');
 
-  // "Умный" поиск по ключевым словам: все слова запроса должны встретиться
-  // где угодно в названии курса (порядок не важен), совпадения ранжируются —
-  // чем раньше в названии находится первое слово и чем короче название,
-  // тем выше в списке.
-  function matchCourses(query) {
-    const tokens = normalize(query).split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) return state.courses.slice(0, MAX_RESULTS);
-
-    const scored = [];
-    for (const course of state.courses) {
-      const name = normalize(course.name);
-      if (tokens.every((t) => name.includes(t))) {
-        const firstIdx = Math.min(...tokens.map((t) => name.indexOf(t)));
-        scored.push({ course, firstIdx });
-      }
-    }
-    scored.sort((a, b) => a.firstIdx - b.firstIdx || a.course.name.length - b.course.name.length);
-    return scored.slice(0, MAX_RESULTS).map((s) => s.course);
-  }
-
-  // position: fixed вместо absolute — список подсказок иначе может обрезаться
-  // контейнером таблицы слушателей (.listeners-table получает overflow-x:auto
-  // на десктопе), как это уже сделано для подсказок адреса организации.
-  function positionList() {
-    const rect = searchInput.getBoundingClientRect();
-    list.style.position = 'fixed';
-    list.style.left = rect.left + 'px';
-    list.style.top = rect.bottom + 4 + 'px';
-    list.style.width = rect.width + 'px';
-  }
-
-  function highlight(index) {
-    const items = list.querySelectorAll('li[data-idx]');
-    items.forEach((li) => li.classList.remove('is-active'));
-    activeIndex = index;
-    if (index >= 0 && items[index]) {
-      items[index].classList.add('is-active');
-      items[index].scrollIntoView({ block: 'nearest' });
-    }
-  }
-
-  function renderList(courses) {
-    currentMatches = courses;
-    activeIndex = -1;
-    list.innerHTML = '';
-
-    if (!courses || courses.length === 0) {
-      const li = document.createElement('li');
-      li.className = 'suggestions__empty';
-      li.textContent = 'Курсы не найдены — попробуйте другое слово';
-      list.appendChild(li);
-    } else {
-      courses.forEach((course, idx) => {
-        const li = document.createElement('li');
-        li.dataset.idx = String(idx);
-        li.textContent = course.name + (course.hours != null ? ` — ${course.hours} ч.` : '');
-        li.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          selectCourse(course);
-        });
-        list.appendChild(li);
-      });
-    }
-
-    positionList();
-    list.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-  }
-
-  function selectCourse(course) {
-    hiddenInput.value = course.id;
-    searchInput.value = course.name;
-    hideList();
-    onListenerCourseChange(rowEl);
-  }
-
-  function hideList() {
-    list.hidden = true;
-    list.innerHTML = '';
-    searchInput.setAttribute('aria-expanded', 'false');
-  }
-
-  const runSearch = debounce(() => {
-    if (hiddenInput.value) {
-      // текст поменялся после того, как курс уже был выбран — привязку к
-      // конкретному courseId сбрасываем, пока пользователь не выберет заново
-      hiddenInput.value = '';
-      onListenerCourseChange(rowEl);
-    }
-    renderList(matchCourses(searchInput.value));
-  }, 150);
-
-  searchInput.addEventListener('input', runSearch);
-  searchInput.addEventListener('focus', () => renderList(matchCourses(searchInput.value)));
-  searchInput.addEventListener('blur', () => {
-    // небольшая задержка, чтобы mousedown по подсказке успел сработать раньше скрытия списка
-    setTimeout(hideList, 150);
-  });
-
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      // Enter не должен отправлять форму — это просто выбор из списка подсказок
-      e.preventDefault();
-      if (!list.hidden && activeIndex >= 0 && currentMatches[activeIndex]) {
-        selectCourse(currentMatches[activeIndex]);
-      } else if (!list.hidden && currentMatches.length === 1) {
-        selectCourse(currentMatches[0]);
-      }
-      return;
-    }
-    if (list.hidden) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      highlight(Math.min(activeIndex + 1, currentMatches.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      highlight(Math.max(activeIndex - 1, 0));
-    } else if (e.key === 'Escape') {
-      hideList();
-    }
-  });
-
-  window.addEventListener('scroll', hideList, true);
-  window.addEventListener('resize', hideList);
+  onListenerCourseChange(rowEl);
+  closeCourseModal();
 }
 
 function updateListenerRemoveButtons() {
@@ -716,8 +832,17 @@ function validateForm() {
   } else {
     const workplace = document.getElementById('fl-workplace');
     const unemployed = document.getElementById('fl-unemployed');
-    if (!unemployed.checked && !workplace.value.trim()) {
-      markInvalid(workplace, errors, 'Укажите место работы или отметьте «Самозанятый(ая) или временно не работаю».');
+    const flInn = document.getElementById('fl-inn');
+    if (!unemployed.checked) {
+      const flInnDigits = onlyDigits(flInn.value);
+      if (!flInnDigits) {
+        markInvalid(flInn, errors, 'Укажите ИНН места работы или отметьте «Самозанятый(ая) или временно не работаю».');
+      } else if (flInnDigits.length !== 10 && flInnDigits.length !== 12) {
+        markInvalid(flInn, errors, 'ИНН места работы должен содержать 10 или 12 цифр.');
+      }
+      if (!workplace.value.trim()) {
+        markInvalid(workplace, errors, 'Укажите место работы или отметьте «Самозанятый(ая) или временно не работаю».');
+      }
     }
   }
 
@@ -772,9 +897,9 @@ function validateForm() {
   rows.forEach((row, index) => {
     const n = index + 1;
     const courseSelect = row.querySelector('.listener-course');
-    const courseSearchInput = row.querySelector('.listener-course-search');
+    const courseBtn = row.querySelector('.listener-course-btn');
     const course = state.courses.find((c) => c.id === courseSelect.value);
-    if (!courseSelect.value) markInvalid(courseSearchInput, errors, `Слушатель ${n}: выберите курс.`);
+    if (!courseSelect.value) markInvalid(courseBtn, errors, `Слушатель ${n}: выберите курс.`);
 
     const dateInput = row.querySelector('.listener-date');
     if (!dateInput.value) markInvalid(dateInput, errors, `Слушатель ${n}: укажите дату проведения.`);
@@ -804,6 +929,25 @@ function validateForm() {
       if (!reasonChecked) {
         markInvalid(row.querySelector('.listener-reason'), errors, `Слушатель ${n}: укажите причину прохождения.`);
       }
+    }
+  });
+
+  // Запрет дублей email у разных слушателей (без учёта регистра и пробелов).
+  // Формат каждого email проверяется отдельно выше — это дополнительная проверка.
+  const emailsNorm = rows.map((row) => row.querySelector('.listener-email').value.trim().toLowerCase());
+  rows.forEach((row, index) => {
+    const email = emailsNorm[index];
+    if (!email) return;
+    const firstIdx = emailsNorm.indexOf(email);
+    if (firstIdx !== index) {
+      const emailInput = row.querySelector('.listener-email');
+      markInvalid(
+        emailInput,
+        errors,
+        `Email слушателя ${index + 1} совпадает с email слушателя ${firstIdx + 1} — укажите разные адреса.`
+      );
+      // первую строку с этим же email тоже подсвечиваем как невалидную
+      rows[firstIdx].querySelector('.listener-email').classList.add('field-invalid');
     }
   });
 
@@ -870,6 +1014,7 @@ function buildPayload() {
     fundingSource: isIndividual ? null : document.getElementById('org-funding-source').value.trim() || null,
 
     workplace: isIndividual ? document.getElementById('fl-workplace').value.trim() || null : null,
+    workplaceInn: isIndividual ? onlyDigits(document.getElementById('fl-inn').value) || null : null,
     selfEmployedOrUnemployed: isIndividual ? document.getElementById('fl-unemployed').checked : null,
 
     postalAddress: needsPostalAddress ? {

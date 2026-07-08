@@ -20,25 +20,29 @@
     "id": "123",
     "name": "Охрана труда для руководителей и специалистов",
     "hours": 40,
-    "category": "labor_safety"
+    "category": "labor_safety",
+    "folder": "Охрана труда"
   },
   {
     "id": "456",
     "name": "Пожарно-технический минимум",
     "hours": 16,
-    "category": "fire_safety"
+    "category": "fire_safety",
+    "folder": "Охрана труда"
   },
   {
     "id": "789",
     "name": "Оказание первой помощи",
     "hours": 8,
-    "category": "first_aid"
+    "category": "first_aid",
+    "folder": "Курсы повышения квалификации"
   },
   {
     "id": "101",
     "name": "Курс повышения квалификации по общему профилю",
     "hours": 72,
-    "category": null
+    "category": null,
+    "folder": "Курсы повышения квалификации"
   }
 ]
 ```
@@ -46,6 +50,7 @@
 - `category` ∈ `"labor_safety" | "fire_safety" | "first_aid" | null`.
 - Если `category` не `null` — форма показывает у слушателя поля **Должность** и **Причина прохождения**.
 - `hours` — подставляется в поле «Кол-во часов» автоматически при выборе курса (не редактируется руками).
+- `folder` — человекочитаемое имя папки для группировки/фильтрации в попапе выбора курса (см. `scripts/export-catalog.js`, `COURSE_SECTIONS`). Не равно исходному названию раздела в Б24 — сделано специально понятнее для пользователя формы. Текущие значения: «Курсы повышения квалификации», «Программы профессиональной переподготовки», «Логопедия и дефектология», «Охрана труда», «Сколково», «Сколково: ПП».
 
 ---
 
@@ -70,6 +75,7 @@
     "ikzNumber": "223110123456712345100100000000000",
     "fundingSource": "Средства местного бюджета",
     "workplace": null,
+    "workplaceInn": null,
     "selfEmployedOrUnemployed": null,
     "postalAddress": {
       "index": "123456",
@@ -112,6 +118,7 @@
     "fullName": null, "inn": null, "kpp": null, "address": null,
     "documentType": null, "lawType": null, "ikzRequired": null, "ikzNumber": null, "fundingSource": null,
     "workplace": "ООО «Ромашка», бухгалтер",
+    "workplaceInn": "7707083893",
     "selfEmployedOrUnemployed": false,
     "postalAddress": { "index": "123456", "address": "...", "orgName": null, "headFio": "Петров Пётр Петрович" },
     "headFio": "Петров Пётр Петрович",
@@ -131,6 +138,7 @@
 - `organization.lawType` ∈ `"44-fz" | "223-fz"` | `null`.
 - `organization.ikzRequired`: boolean | `null`; `ikzNumber` обязателен, только если `true`.
 - `organization.workplace`: строка или `null` — заполняется только при `applicantType === "individual"`, необязательно (может быть пустым, если указан `selfEmployedOrUnemployed: true`).
+- `organization.workplaceInn`: строка (10 или 12 цифр) или `null` — ИНН места работы физлица; заполняется только при `applicantType === "individual"` (для ЮЛ всегда `null`), автоподставляет название организации в `workplace` через DaData. Обязателен вместе с `workplace`, если `selfEmployedOrUnemployed !== true`.
 - `organization.selfEmployedOrUnemployed`: boolean | `null` — только при `applicantType === "individual"`; при отправке обязательно `workplace` ИЛИ `selfEmployedOrUnemployed === true`.
 - `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"`.
 - `organization.postalAddress`: объект или `null` — заполняется и обязателен, **только если** `originalsDelivery === "russian_post"`, иначе `null`.

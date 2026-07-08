@@ -1,5 +1,5 @@
 /**
- * Apps Script Web App — приёмник данных от Cloudflare Worker.
+ * Apps Script Web App — приёмник данных от serverless-функции (yandex-function/).
  *
  * Разворачивается как Web App: Deploy → New deployment → Web app,
  * execute as "Me", access "Anyone" (или "Anyone with the link").

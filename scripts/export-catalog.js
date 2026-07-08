@@ -28,13 +28,17 @@
 // Уточнено вручную (2026-07-07) по факту навигации в Б24: ЦДО -> ЦДО КПК в
 // продаже и ЦДО ПП в продаже, ЕРЛ Сколково (+ ЕРЛ Сколково: ПП), ЕРЛ
 // Логопедия/дефектология, ЕРЛ Охрана труда.
+// `folder` — человекочитаемое имя папки для группировки в UI формы (см.
+// site/app.js, попап выбора курса). Отличается от исходного названия раздела
+// в Б24 — так попросил заказчик, чтобы не путать пользователей формы
+// служебными названиями вроде "ЦДО КПК В продаже".
 const COURSE_SECTIONS = {
-  719: { name: 'ЦДО КПК В продаже', category: null },
-  721: { name: 'ЦДО ПП В продаже', category: null },
-  1204: { name: 'ЕРЛ. Логопедия/дефектология', category: null },
-  1252: { name: 'ЕРЛ. Охрана труда', category: 'labor_safety' },
-  1308: { name: 'ЕРЛ Сколково', category: null },
-  1330: { name: 'ЕРЛ Сколково: ПП', category: null },
+  719: { name: 'ЦДО КПК В продаже', category: null, folder: 'Курсы повышения квалификации' },
+  721: { name: 'ЦДО ПП В продаже', category: null, folder: 'Программы профессиональной переподготовки' },
+  1204: { name: 'ЕРЛ. Логопедия/дефектология', category: null, folder: 'Логопедия и дефектология' },
+  1252: { name: 'ЕРЛ. Охрана труда', category: 'labor_safety', folder: 'Охрана труда' },
+  1308: { name: 'ЕРЛ Сколково', category: null, folder: 'Сколково' },
+  1330: { name: 'ЕРЛ Сколково: ПП', category: null, folder: 'Сколково: ПП' },
 };
 
 // Категория по разделу (см. выше) — основной, надёжный сигнал: названия курсов
@@ -98,11 +102,14 @@ function extractHours(name) {
 
 function mapProduct(product) {
   const name = (product.name || product.NAME || '').trim();
+  const sectionId = product.iblockSectionId ?? product.IBLOCK_SECTION_ID;
+  const section = COURSE_SECTIONS[sectionId];
   return {
     id: String(product.id ?? product.ID ?? ''),
     name,
     hours: extractHours(name),
-    category: detectCategory(name, product.iblockSectionId ?? product.IBLOCK_SECTION_ID),
+    category: detectCategory(name, sectionId),
+    folder: (section && section.folder) || null,
   };
 }
 

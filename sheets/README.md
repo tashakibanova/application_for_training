@@ -65,8 +65,7 @@
 | Web app URL (шаг 4.5)        | `SHEETS_WEBHOOK_URL` |
 | SHARED_SECRET (шаг 3.4)      | `SHEETS_WEBHOOK_SECRET` |
 
-Задаются при деплое функции флагом `--environment` (подробности — в
-`yandex-function/README.md`).
+Задаются в консоли Yandex Cloud, на странице функции (см. `yandex-function/README.md`, шаг 3 «Задать переменные окружения»).
 
 ## 6. Обновление кода после изменений
 

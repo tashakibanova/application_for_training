@@ -49,8 +49,9 @@
   --shadow-sm: 0 1px 2px rgba(33, 20, 30, 0.06);
   --shadow-md: 0 10px 30px -12px rgba(120, 20, 60, 0.22);
 
-  /* Раскладка табличных колонок слушателей (десктоп) */
-  --lr-cols: minmax(150px, 2.3fr) 56px 132px minmax(130px, 1.5fr) minmax(150px, 1.6fr) 132px;
+  /* Раскладка табличных колонок слушателей (десктоп).
+     Колонка «Курс» заметно шире прочих — названия курсов длинные (100+ симв.). */
+  --lr-cols: minmax(220px, 3.4fr) 56px 140px minmax(130px, 1.4fr) minmax(150px, 1.5fr) 132px;
 }
 
 * { box-sizing: border-box; }
@@ -61,6 +62,9 @@
 [hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; }
+
+/* Пока открыт попап выбора курса — фон страницы не скроллится */
+body.modal-open { overflow: hidden; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -701,6 +705,202 @@ fieldset.field-invalid {
 }
 
 /* =====================================================================
+ * Выбор курса: кнопка в ячейке + модальный попап
+ * ===================================================================== */
+
+.listener-course-btn {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 13px;
+  font: inherit;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.listener-course-btn::after {
+  content: "";
+  flex: none;
+  margin-left: auto;
+  width: 14px;
+  height: 9px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%236c6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+}
+
+.listener-course-btn:hover { border-color: var(--brand-crimson); }
+
+.listener-course-btn:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px rgba(216, 30, 74, 0.18);
+}
+
+.listener-course-btn.field-invalid {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* По умолчанию — приглушённый placeholder-текст «Выбрать курс» */
+.listener-course-btn__text {
+  color: var(--muted-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Выбранный курс — тёмный текст, длинные названия переносятся, а не режутся */
+.listener-course-btn.is-selected .listener-course-btn__text {
+  color: var(--text);
+  font-weight: 500;
+  white-space: normal;
+}
+
+.course-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.course-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(33, 20, 30, 0.5);
+}
+
+.course-modal__dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.course-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.course-modal__title { margin: 0; font-size: 1.1rem; font-weight: 700; }
+
+.course-modal__close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.course-modal__close:hover { background: var(--surface-2); color: var(--text); }
+
+.course-modal__controls {
+  padding: 14px 18px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.course-modal__search { width: 100%; }
+
+.course-modal__tabs,
+.course-modal__hours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.course-modal__hours { margin-top: 8px; }
+
+.course-tab,
+.course-hour-chip {
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.course-tab:hover,
+.course-hour-chip:hover { border-color: var(--brand-crimson); color: var(--accent-strong); }
+
+.course-tab.is-active,
+.course-hour-chip.is-active {
+  background: var(--brand-gradient);
+  border-color: transparent;
+  color: #fff;
+}
+
+.course-modal__count {
+  margin: 0;
+  padding: 9px 18px 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.course-modal__results {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.course-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.course-result:hover { background: var(--info-bg); }
+
+.course-result__name { font-weight: 500; }
+.course-result__meta { font-size: 0.8rem; color: var(--muted); }
+
+.course-result--empty { color: var(--muted); cursor: default; }
+.course-result--empty:hover { background: transparent; }
+
+/* На узких экранах попап занимает весь экран */
+@media (max-width: 560px) {
+  .course-modal { padding: 0; }
+  .course-modal__dialog {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
+
+/* =====================================================================
  * Адаптив
  * ===================================================================== */
 
@@ -733,7 +933,7 @@ fieldset.field-invalid {
     display: grid;
     grid-template-columns: var(--lr-cols);
     gap: 0 14px;
-    min-width: 820px;
+    min-width: 900px;
     padding: 0 14px 10px;
     margin-bottom: 4px;
     border-bottom: 2px solid var(--border-strong);
@@ -748,7 +948,7 @@ fieldset.field-invalid {
   }
 
   .listener-row.card--nested {
-    min-width: 820px;
+    min-width: 900px;
     padding: 12px 14px 14px;
     margin-bottom: 0;
     border-radius: 0;

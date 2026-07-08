@@ -61,7 +61,7 @@
         <legend>Кто подаёт заявку <span class="req">*</span></legend>
         <div class="radio-row">
           <label class="radio-label">
-            <input type="radio" name="applicantType" value="legal_entity" required> Юридическое лицо / учреждение
+            <input type="radio" name="applicantType" value="legal_entity" required checked> Юридическое лицо / учреждение
           </label>
           <label class="radio-label">
             <input type="radio" name="applicantType" value="individual"> Физическое лицо
@@ -150,8 +150,14 @@
       <div class="subsection individual-only" hidden>
         <h3 class="subsection__title">Занятость</h3>
 
+        <div class="field field--relative">
+          <label for="fl-inn">ИНН места работы <span class="req">*</span></label>
+          <input type="text" id="fl-inn" name="workplaceInn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр — подставит место работы">
+          <p class="hint" id="fl-inn-status" aria-live="polite"></p>
+        </div>
+
         <div class="field">
-          <label for="fl-workplace">Место работы</label>
+          <label for="fl-workplace">Место работы <span class="req">*</span></label>
           <input type="text" id="fl-workplace" name="workplace" placeholder="Организация, где вы работаете">
         </div>
 
@@ -199,7 +205,7 @@
       </div>
 
       <div class="subsection">
-        <h3 class="subsection__title">Контактное лицо</h3>
+        <h3 class="subsection__title legal-entity-only">Контактное лицо</h3>
 
         <div class="field">
           <label for="org-headfio"><span id="org-headfio-label-text">ФИО руководителя</span> <span class="req">*</span></label>
@@ -238,7 +244,7 @@
         <div class="listeners-head" aria-hidden="true">
           <span class="lh lh--course">Курс <span class="req">*</span></span>
           <span class="lh lh--hours">Часы</span>
-          <span class="lh lh--date">Дата <span class="req">*</span></span>
+          <span class="lh lh--date">Дата начала обучения <span class="req">*</span></span>
           <span class="lh lh--fio">ФИО слушателя <span class="req">*</span></span>
           <span class="lh lh--email">Email <span class="req">*</span></span>
           <span class="lh lh--phone">Телефон <span class="req">*</span></span>
@@ -269,6 +275,25 @@
   </footer>
 </div>
 
+<!-- Попап выбора курса (общий на всю форму) -->
+<div id="course-modal" class="course-modal" hidden>
+  <div class="course-modal__overlay" data-course-close></div>
+  <div class="course-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="course-modal-title">
+    <div class="course-modal__header">
+      <h3 id="course-modal-title" class="course-modal__title">Выбор курса</h3>
+      <button type="button" class="course-modal__close" data-course-close aria-label="Закрыть">&times;</button>
+    </div>
+    <div class="course-modal__controls">
+      <input type="text" id="course-modal-search" class="course-modal__search" autocomplete="off"
+             placeholder="Поиск по названию — например «охрана труда»">
+      <div id="course-modal-tabs" class="course-modal__tabs" role="tablist" aria-label="Папки курсов"></div>
+      <div id="course-modal-hours" class="course-modal__hours"></div>
+    </div>
+    <p id="course-modal-count" class="course-modal__count"></p>
+    <ul id="course-modal-results" class="course-modal__results"></ul>
+  </div>
+</div>
+
 <!-- Шаблон строки слушателя -->
 <template id="listener-row-template">
   <div class="listener-row card--nested">
@@ -280,9 +305,10 @@
     <div class="listener-grid">
       <div class="field lr-cell lr--course">
         <label>Курс <span class="req">*</span></label>
-        <input type="text" class="listener-course-search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Начните вводить название курса — например «охрана труда»">
+        <button type="button" class="listener-course-btn">
+          <span class="listener-course-btn__text">Выбрать курс</span>
+        </button>
         <input type="hidden" class="listener-course">
-        <ul class="suggestions listener-course-suggestions" hidden></ul>
       </div>
 
       <div class="field lr-cell lr--hours">
@@ -291,7 +317,7 @@
       </div>
 
       <div class="field lr-cell lr--date">
-        <label>Дата <span class="req">*</span></label>
+        <label>Дата начала обучения <span class="req">*</span></label>
         <input type="date" class="listener-date" required>
       </div>
 
