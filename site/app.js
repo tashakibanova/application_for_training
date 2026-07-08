@@ -943,20 +943,6 @@ function validateForm() {
     markInvalid(headFio, errors, isIndividual ? 'Укажите ФИО.' : 'Укажите ФИО руководителя.');
   }
 
-  const email = document.getElementById('org-email');
-  if (!email.value.trim()) {
-    markInvalid(email, errors, 'Укажите email для связи.');
-  } else if (!isValidEmail(email.value)) {
-    markInvalid(email, errors, 'Email указан в неверном формате.');
-  }
-
-  const phone = document.getElementById('org-phone');
-  if (!phone.value.trim()) {
-    markInvalid(phone, errors, 'Укажите телефон для связи.');
-  } else if (!isValidPhoneDigits(phone.value)) {
-    markInvalid(phone, errors, 'Телефон указан в неверном формате.');
-  }
-
   const rows = Array.from(document.querySelectorAll('.listener-row'));
   if (rows.length === 0) {
     errors.push({ message: 'Добавьте хотя бы одного слушателя.', el: document.getElementById('add-listener-btn') });
@@ -1100,8 +1086,6 @@ function buildPayload() {
     } : null,
 
     headFio: document.getElementById('org-headfio').value.trim(),
-    email: document.getElementById('org-email').value.trim(),
-    phone: normalizePhone(document.getElementById('org-phone').value),
     originalsDelivery,
     comment: comment || null,
   };

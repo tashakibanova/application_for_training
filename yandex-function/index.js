@@ -160,9 +160,6 @@ function buildCommentText(organization, listeners, coursesSummary, submittedAt) 
     lines.push(`Контактное лицо: ${organization.headFio}`);
   }
 
-  lines.push(`Email: ${organization.email}`);
-  lines.push(`Телефон: ${organization.phone}`);
-
   lines.push('');
   lines.push(
     `Способ получения оригиналов: ${DELIVERY_LABELS[organization.originalsDelivery] || organization.originalsDelivery}`
@@ -215,7 +212,9 @@ function validateSubmitPayload(payload) {
     if (org.ikzRequired && !org.ikzNumber) return 'missing_organization.ikzNumber';
   }
 
-  const requiredContactFields = ['headFio', 'email', 'phone', 'originalsDelivery'];
+  // email/phone на уровне organization намеренно нет — их роль выполняют
+  // email/phone слушателей (listeners[].email/phone), см. CONTRACT.md §2.
+  const requiredContactFields = ['headFio', 'originalsDelivery'];
   for (const field of requiredContactFields) {
     if (!org[field]) return `missing_organization.${field}`;
   }
@@ -310,12 +309,15 @@ async function sendToAppsScript(sheet, row) {
 }
 
 async function sendUnboundRow(payload, coursesSummary, xlsxBase64, note) {
+  // На уровне organization нет своих email/phone (см. CONTRACT.md §2) — для
+  // ручной разборки незакреплённой заявки берём контакт первого слушателя.
+  const firstListener = payload.listeners && payload.listeners[0];
   const row = {
     receivedAt: new Date().toISOString(),
     organizationName: applicantDisplayName(payload.organization),
     inn: payload.organization.inn,
-    contactEmail: payload.organization.email,
-    contactPhone: payload.organization.phone,
+    contactEmail: (firstListener && firstListener.email) || null,
+    contactPhone: (firstListener && firstListener.phone) || null,
     listenersCount: payload.listeners.length,
     coursesSummary,
     note,

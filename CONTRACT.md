@@ -84,8 +84,6 @@
       "headFio": "Иванова Мария Петровна"
     },
     "headFio": "Иванова Мария Петровна",
-    "email": "school1@example.com",
-    "phone": "+79991234567",
     "originalsDelivery": "russian_post",
     "comment": "Свободный текст комментария"
   },
@@ -122,13 +120,13 @@
     "selfEmployedOrUnemployed": false,
     "postalAddress": { "index": "123456", "address": "...", "orgName": null, "headFio": "Петров Пётр Петрович" },
     "headFio": "Петров Пётр Петрович",
-    "email": "petrov@example.com",
-    "phone": "+79991234567",
     "originalsDelivery": "russian_post",
     "comment": null
   }
 }
 ```
+
+У `organization` намеренно нет собственных `email`/`phone` — email и телефон слушателей (`listeners[].email`/`listeners[].phone`) уже покрывают контакты по заявке, дублировать их на уровне организации не нужно (решение заказчика). Если понадобится контакт для заявок без сделки (см. §4.1) — используется email/телефон первого слушателя.
 
 Поля:
 - `dealId`: строка или `null`, если параметра `?deal=` не было в URL.
