@@ -123,20 +123,33 @@ function init() {
 // ссылку. Значение обновляет state.dealId вживую (только цифры, до 9 знаков —
 // как ID сделок Б24), чтобы оно гарантированно попало в buildPayload().dealId.
 // Поле необязательное: пустое значение = null, форма отправляется и без него.
-// Если ID пришёл из URL (?deal=) — он же подставляется в это поле, и его можно
-// тут же поправить вручную, если менеджер ошибся; отдельного read-only режима
-// нет специально — единое редактируемое поле проще и для 95% случаев (ссылка
-// работает — просто видно подтверждение ниже) не мешает.
+//
+// Как только значение зафиксировано (пришло из ?deal= в URL, либо менеджер
+// ввёл его вручную и увёл фокус с поля) — поле блокируется от дальнейшего
+// редактирования (readOnly), чтобы привязку к сделке нельзя было случайно
+// поменять/стереть после того, как она уже установлена.
 function wireDealIdInput() {
   const input = document.getElementById('deal-id-input');
   if (!input) return;
 
-  if (state.dealId) input.value = onlyDigits(state.dealId);
+  function lock() {
+    input.readOnly = true;
+    input.classList.add('is-locked');
+  }
+
+  if (state.dealId) {
+    input.value = onlyDigits(state.dealId);
+    lock();
+  }
 
   input.addEventListener('input', () => {
     input.value = onlyDigits(input.value).slice(0, 9);
     state.dealId = input.value || null;
     renderDealNotice();
+  });
+
+  input.addEventListener('blur', () => {
+    if (input.value) lock();
   });
 }
 

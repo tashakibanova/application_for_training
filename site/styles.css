@@ -255,6 +255,14 @@ body {
   background: #fff;
 }
 
+/* Заблокировано после того, как ID зафиксирован (из ?deal= или введён вручную) —
+   привязку к сделке нельзя случайно поменять/стереть. */
+.deal-box input.deal-box__input.is-locked {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .deal-notice {
   margin: 16px 0 0;
   padding: 12px 14px;
@@ -1033,6 +1041,23 @@ fieldset.field-invalid {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Чекбокс "Это я" (см. .listener-self-fio в шаблоне слушателя) — тоже
+     прямой потомок .lr-cell и попадает под правило выше, но это обычный
+     текст чекбокса, а не короткая подпись колонки — не должен обрезаться
+     многоточием. Специфичность выше за счёт доп. класса — переопределяет. */
+  .listener-grid > .lr-cell:not(.lr--extra) > label.listener-self-fio {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    text-transform: none;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: normal;
+    color: var(--text);
+    margin-top: 6px;
+    margin-bottom: 0;
   }
 
   .lr-cell { margin-bottom: 4px; }
