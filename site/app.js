@@ -173,7 +173,6 @@ function wireApplicantType() {
   const legalOnlyEls = document.querySelectorAll('.legal-entity-only');
   const individualOnlyEls = document.querySelectorAll('.individual-only');
   const orgHeadFioLabel = document.getElementById('org-headfio-label-text');
-  const postalHeadFioLabel = document.getElementById('postal-headfio-label-text');
 
   function update() {
     const checked = document.querySelector('input[name="applicantType"]:checked');
@@ -182,8 +181,10 @@ function wireApplicantType() {
     legalOnlyEls.forEach((el) => { el.hidden = isIndividual; });
     individualOnlyEls.forEach((el) => { el.hidden = !isIndividual; });
 
+    // #postal-headfio-field теперь тоже .legal-entity-only (см. index.html) —
+    // для ФЛ поле "ФИО получателя" скрыто целиком, значение берём из общего
+    // "ФИО" напрямую в buildPayload()/validateForm(), дублировать подпись не нужно.
     orgHeadFioLabel.textContent = isIndividual ? 'ФИО' : 'ФИО руководителя';
-    postalHeadFioLabel.textContent = isIndividual ? 'ФИО получателя' : 'ФИО руководителя (получатель)';
   }
 
   radios.forEach((r) => r.addEventListener('change', update));
@@ -934,8 +935,13 @@ function validateForm() {
       if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
     }
 
-    const postalHeadFio = document.getElementById('postal-headfio');
-    if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
+    // Для ФЛ поле "ФИО получателя" скрыто и не редактируется отдельно — значение
+    // всегда берётся из общего "ФИО" (см. buildPayload()), которое и так
+    // валидируется ниже как обязательное для обоих типов заявителя.
+    if (!isIndividual) {
+      const postalHeadFio = document.getElementById('postal-headfio');
+      if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
+    }
   }
 
   const headFio = document.getElementById('org-headfio');
@@ -1082,7 +1088,11 @@ function buildPayload() {
       index: onlyDigits(document.getElementById('postal-index').value),
       address: document.getElementById('postal-address').value.trim(),
       orgName: isIndividual ? null : document.getElementById('postal-orgname').value.trim(),
-      headFio: document.getElementById('postal-headfio').value.trim(),
+      // Для ФЛ поле "ФИО получателя" не показывается отдельно — тот же человек,
+      // что и в общем "ФИО" (org-headfio), объединили по просьбе заказчика.
+      headFio: isIndividual
+        ? document.getElementById('org-headfio').value.trim()
+        : document.getElementById('postal-headfio').value.trim(),
     } : null,
 
     headFio: document.getElementById('org-headfio').value.trim(),
