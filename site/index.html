@@ -156,6 +156,11 @@
       <div class="subsection individual-only" hidden>
         <h3 class="subsection__title">Занятость</h3>
 
+        <div class="field">
+          <label for="fl-headfio">ФИО заявителя <span class="req">*</span></label>
+          <input type="text" id="fl-headfio" name="headFio" autocomplete="name" placeholder="Фамилия Имя Отчество">
+        </div>
+
         <div class="field field--relative">
           <label for="fl-inn">ИНН места работы <span class="req">*</span></label>
           <input type="text" id="fl-inn" name="workplaceInn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр — подставит место работы">
@@ -194,9 +199,10 @@
           <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр">
         </div>
 
-        <div class="field">
+        <div class="field field--relative">
           <label for="postal-address">Адрес <span class="req">*</span></label>
-          <input type="text" id="postal-address" name="postalAddressLine" placeholder="Город, улица, дом, квартира/офис">
+          <input type="text" id="postal-address" name="postalAddressLine" autocomplete="off" placeholder="Город, улица, дом, квартира/офис">
+          <ul id="postal-address-suggestions" class="suggestions" hidden></ul>
         </div>
 
         <div class="field legal-entity-only" id="postal-orgname-field">
@@ -204,18 +210,21 @@
           <input type="text" id="postal-orgname" name="postalOrgName" placeholder="подставится из наименования учреждения">
         </div>
 
-        <div class="field legal-entity-only" id="postal-headfio-field">
-          <label for="postal-headfio">ФИО руководителя (получатель) <span class="req">*</span></label>
-          <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится из поля ниже">
+        <div class="field" id="postal-headfio-field">
+          <label class="radio-label individual-only" id="postal-headfio-selfcheck-wrap">
+            <input type="checkbox" id="postal-headfio-selfcheck" checked> Получатель — это я (совпадает с ФИО заявителя)
+          </label>
+          <label for="postal-headfio">ФИО получателя <span class="req">*</span></label>
+          <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится автоматически">
         </div>
       </div>
 
       <div class="subsection">
         <h3 class="subsection__title legal-entity-only">Контактное лицо</h3>
 
-        <div class="field">
-          <label for="org-headfio"><span id="org-headfio-label-text">ФИО руководителя</span> <span class="req">*</span></label>
-          <input type="text" id="org-headfio" name="headFio" autocomplete="name" required>
+        <div class="field legal-entity-only">
+          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
+          <input type="text" id="org-headfio" name="headFio" autocomplete="name">
         </div>
 
         <div class="field">
@@ -318,6 +327,9 @@
       <div class="field lr-cell lr--fio">
         <label>ФИО слушателя (как в паспорте) <span class="req">*</span></label>
         <input type="text" class="listener-fio" required>
+        <label class="radio-label listener-self-fio" hidden>
+          <input type="checkbox" class="listener-self-fio-check"> Это я — подставить ФИО заявителя
+        </label>
       </div>
 
       <div class="field lr-cell lr--email">

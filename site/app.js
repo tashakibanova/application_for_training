@@ -87,9 +87,24 @@ function init() {
   wireIkzToggle();
   wireInnAutofill('org-inn', 'inn-status', applyPartySuggestion);
   wireInnAutofill('fl-inn', 'fl-inn-status', applyWorkplaceSuggestion);
-  wireAddressSuggest();
+  // Юр.адрес: выбор подсказки только подставляет сам адрес (индекс тут отдельного
+  // поля не имеет — он уходит в data-атрибут для зеркалирования, см. ниже).
+  wireAddressSuggest('org-address', 'org-address-suggestions', (s) => {
+    const addressInput = document.getElementById('org-address');
+    addressInput.value = s.value;
+    addressInput.dataset.postalCode = (s.data && s.data.postal_code) || '';
+  });
+  // Почтовый адрес: выбор подсказки подставляет адрес И сразу перезаписывает
+  // индекс (осознанный выбор пользователя — можно перезаписать без оглядки на
+  // прежнее значение, в отличие от пассивного mirrorPostalIndex()).
+  wireAddressSuggest('postal-address', 'postal-address-suggestions', (s) => {
+    document.getElementById('postal-address').value = s.value;
+    const postalCode = s.data && s.data.postal_code;
+    if (postalCode) document.getElementById('postal-index').value = postalCode;
+  });
   wireOriginalsDelivery();
   wireFlEmployment();
+  wirePostalHeadFioSelfCheck();
   wireCourseModal();
   wireMetricsTracking();
 
@@ -172,7 +187,6 @@ function wireApplicantType() {
   const radios = document.querySelectorAll('input[name="applicantType"]');
   const legalOnlyEls = document.querySelectorAll('.legal-entity-only');
   const individualOnlyEls = document.querySelectorAll('.individual-only');
-  const orgHeadFioLabel = document.getElementById('org-headfio-label-text');
 
   function update() {
     const checked = document.querySelector('input[name="applicantType"]:checked');
@@ -181,14 +195,33 @@ function wireApplicantType() {
     legalOnlyEls.forEach((el) => { el.hidden = isIndividual; });
     individualOnlyEls.forEach((el) => { el.hidden = !isIndividual; });
 
-    // #postal-headfio-field теперь тоже .legal-entity-only (см. index.html) —
-    // для ФЛ поле "ФИО получателя" скрыто целиком, значение берём из общего
-    // "ФИО" напрямую в buildPayload()/validateForm(), дублировать подпись не нужно.
-    orgHeadFioLabel.textContent = isIndividual ? 'ФИО' : 'ФИО руководителя';
+    // Чекбокс "Это я" в строках слушателей — только для ФЛ (компания не может
+    // быть слушателем). Проходим по ВСЕМ строкам, включая уже добавленные,
+    // чтобы переключение ЮЛ/ФЛ показывало/прятало его везде.
+    document.querySelectorAll('.listener-row').forEach((row) => {
+      applyListenerSelfFioVisibility(row, isIndividual);
+    });
   }
 
   radios.forEach((r) => r.addEventListener('change', update));
   update();
+}
+
+// Показывает/прячет чекбокс "Это я" в одной строке слушателя. При скрытии
+// (переключились на ЮЛ) снимаем отметку, чтобы не осталось «зависшего» состояния.
+function applyListenerSelfFioVisibility(row, isIndividual) {
+  const wrap = row.querySelector('.listener-self-fio');
+  if (!wrap) return;
+  wrap.hidden = !isIndividual;
+  if (!isIndividual) {
+    const check = row.querySelector('.listener-self-fio-check');
+    if (check) check.checked = false;
+  }
+}
+
+function currentApplicantIsIndividual() {
+  const checked = document.querySelector('input[name="applicantType"]:checked');
+  return !!checked && checked.value === 'individual';
 }
 
 // Мутуальный выбор для физлица: указаны ИНН и место работы ИЛИ отмечено
@@ -211,6 +244,64 @@ function wireFlEmployment() {
     workplaceInput.disabled = off;
     innInput.disabled = off;
   });
+}
+
+// Поле "ФИО получателя" в почтовом блоке для ФЛ управляется чекбоксом
+// "Получатель — это я": по умолчанию отмечен — тогда сам инпут скрыт/задизейблен,
+// а его значение живьём равно "ФИО заявителя" (#fl-headfio). При снятии галочки
+// инпут открывается для независимого редактирования (стартовое значение —
+// текущее ФИО заявителя). Для ЮЛ чекбокс скрыт (.individual-only), а инпут
+// работает по-старому (виден, зеркалирование по blur из #org-headfio).
+function wirePostalHeadFioSelfCheck() {
+  const checkbox = document.getElementById('postal-headfio-selfcheck');
+  const postalHeadFio = document.getElementById('postal-headfio');
+  const flHeadFio = document.getElementById('fl-headfio');
+  const postalHeadFioLabel = document.querySelector('#postal-headfio-field label[for="postal-headfio"]');
+  if (!checkbox || !postalHeadFio || !flHeadFio) return;
+
+  function update() {
+    const isIndividual = currentApplicantIsIndividual();
+    if (!isIndividual) {
+      // ЮЛ: инпут всегда виден и активен, поведение по blur не трогаем.
+      postalHeadFio.hidden = false;
+      postalHeadFio.disabled = false;
+      if (postalHeadFioLabel) postalHeadFioLabel.hidden = false;
+      return;
+    }
+    const self = checkbox.checked;
+    if (self) {
+      postalHeadFio.value = flHeadFio.value.trim();
+      postalHeadFio.hidden = true;
+      postalHeadFio.disabled = true;
+      if (postalHeadFioLabel) postalHeadFioLabel.hidden = true;
+    } else {
+      postalHeadFio.hidden = false;
+      postalHeadFio.disabled = false;
+      if (postalHeadFioLabel) postalHeadFioLabel.hidden = false;
+    }
+  }
+
+  checkbox.addEventListener('change', () => {
+    // При снятии галочки предзаполняем текущим ФИО заявителя как стартовую точку.
+    if (!checkbox.checked && !postalHeadFio.value.trim()) {
+      postalHeadFio.value = flHeadFio.value.trim();
+    }
+    update();
+  });
+
+  // Пока галочка отмечена — держим значение почтового ФИО синхронным с ФИО заявителя.
+  flHeadFio.addEventListener('input', () => {
+    if (currentApplicantIsIndividual() && checkbox.checked) {
+      postalHeadFio.value = flHeadFio.value.trim();
+    }
+  });
+
+  // Пересчёт при переключении ЮЛ/ФЛ.
+  document.querySelectorAll('input[name="applicantType"]').forEach((r) => {
+    r.addEventListener('change', update);
+  });
+
+  update();
 }
 
 // Почтовый адрес нужен, только если оригиналы договора отправляются почтой.
@@ -410,9 +501,14 @@ function applyPartySuggestion(suggestion) {
   mirrorPostalIndex();
 }
 
-function wireAddressSuggest() {
-  const addressInput = document.getElementById('org-address');
-  const list = document.getElementById('org-address-suggestions');
+// Общий DaData-автоподбор адреса. Переиспользуется для #org-address (юр.адрес)
+// и #postal-address (почтовый адрес). onSelect(suggestion) вызывается при выборе
+// подсказки — там задаётся, что делать с выбранным адресом (у почтового, помимо
+// value, ещё и подстановка индекса).
+function wireAddressSuggest(inputId, listId, onSelect) {
+  const addressInput = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!addressInput || !list) return;
 
   const runSuggest = debounce(async () => {
     const query = addressInput.value.trim();
@@ -451,7 +547,7 @@ function wireAddressSuggest() {
       li.tabIndex = 0;
       li.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        addressInput.value = s.value;
+        onSelect(s);
         hideList();
       });
       list.appendChild(li);
@@ -502,6 +598,24 @@ function addListenerRow() {
   rowEl.querySelector('.listener-course-btn').addEventListener('click', () => {
     openCourseModal(rowEl);
   });
+
+  // Чекбокс "Это я" — только для ФЛ. Разовое копирование ФИО заявителя в ФИО
+  // слушателя (не постоянная привязка). Email/телефон копировать не из чего —
+  // на уровне заявителя их нет, поэтому подставляется только ФИО.
+  const selfFioCheck = rowEl.querySelector('.listener-self-fio-check');
+  if (selfFioCheck) {
+    selfFioCheck.addEventListener('change', () => {
+      if (selfFioCheck.checked) {
+        const flHeadFio = document.getElementById('fl-headfio');
+        const fioInput = rowEl.querySelector('.listener-fio');
+        fioInput.value = (flHeadFio ? flHeadFio.value : '').trim();
+        fioInput.classList.remove('field-invalid');
+      }
+    });
+  }
+  // Видимость чекбокса по текущему типу заявителя (важно для строк, добавленных
+  // уже после переключения на ФЛ/ЮЛ).
+  applyListenerSelfFioVisibility(rowEl, currentApplicantIsIndividual());
 
   rowEl.querySelector('.remove-listener-btn').addEventListener('click', () => {
     rowEl.remove();
@@ -935,18 +1049,22 @@ function validateForm() {
       if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
     }
 
-    // Для ФЛ поле "ФИО получателя" скрыто и не редактируется отдельно — значение
-    // всегда берётся из общего "ФИО" (см. buildPayload()), которое и так
-    // валидируется ниже как обязательное для обоих типов заявителя.
-    if (!isIndividual) {
+    // ФИО получателя. Для ЮЛ — отдельное обязательное поле. Для ФЛ проверяем,
+    // только если снят чекбокс "Получатель — это я": если он отмечен, значение
+    // берётся из "ФИО заявителя" (#fl-headfio), которое валидируется ниже.
+    const selfCheck = document.getElementById('postal-headfio-selfcheck');
+    const postalSelf = isIndividual && selfCheck && selfCheck.checked;
+    if (!postalSelf) {
       const postalHeadFio = document.getElementById('postal-headfio');
       if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
     }
   }
 
-  const headFio = document.getElementById('org-headfio');
+  // ФИО: для ФЛ — "ФИО заявителя" (#fl-headfio), для ЮЛ — "ФИО руководителя"
+  // (#org-headfio).
+  const headFio = document.getElementById(isIndividual ? 'fl-headfio' : 'org-headfio');
   if (!headFio.value.trim()) {
-    markInvalid(headFio, errors, isIndividual ? 'Укажите ФИО.' : 'Укажите ФИО руководителя.');
+    markInvalid(headFio, errors, isIndividual ? 'Укажите ФИО заявителя.' : 'Укажите ФИО руководителя.');
   }
 
   const rows = Array.from(document.querySelectorAll('.listener-row'));
@@ -1055,6 +1173,16 @@ function renderErrors(errors) {
  * Сбор payload строго по CONTRACT.md §2
  * ===================================================================== */
 
+// ФИО получателя для payload. Для ФЛ с отмеченным чекбоксом "Получатель — это я"
+// значение берётся из "ФИО заявителя", иначе из самого поля #postal-headfio.
+function postalHeadFioValue(isIndividual) {
+  const selfCheck = document.getElementById('postal-headfio-selfcheck');
+  if (isIndividual && selfCheck && selfCheck.checked) {
+    return document.getElementById('fl-headfio').value.trim();
+  }
+  return document.getElementById('postal-headfio').value.trim();
+}
+
 function buildPayload() {
   const applicantChecked = document.querySelector('input[name="applicantType"]:checked');
   const applicantType = applicantChecked ? applicantChecked.value : null;
@@ -1088,14 +1216,15 @@ function buildPayload() {
       index: onlyDigits(document.getElementById('postal-index').value),
       address: document.getElementById('postal-address').value.trim(),
       orgName: isIndividual ? null : document.getElementById('postal-orgname').value.trim(),
-      // Для ФЛ поле "ФИО получателя" не показывается отдельно — тот же человек,
-      // что и в общем "ФИО" (org-headfio), объединили по просьбе заказчика.
-      headFio: isIndividual
-        ? document.getElementById('org-headfio').value.trim()
-        : document.getElementById('postal-headfio').value.trim(),
+      // ФИО получателя. Для ФЛ: если отмечен "Получатель — это я" — берём "ФИО
+      // заявителя" (#fl-headfio), иначе — то, что вписано вручную в #postal-headfio.
+      // Для ЮЛ — как раньше, из #postal-headfio.
+      headFio: postalHeadFioValue(isIndividual),
     } : null,
 
-    headFio: document.getElementById('org-headfio').value.trim(),
+    headFio: isIndividual
+      ? document.getElementById('fl-headfio').value.trim()
+      : document.getElementById('org-headfio').value.trim(),
     originalsDelivery,
     comment: comment || null,
   };
