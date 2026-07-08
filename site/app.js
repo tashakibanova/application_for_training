@@ -203,7 +203,10 @@ function wireOriginalsDelivery() {
     // а blur по нему мог не сработать — пользователь просто выбрал способ
     // доставки, а не покидал поле адреса. mirrorPostalAddress не перезапишет,
     // если пользователь уже ввёл почтовый адрес вручную.
-    if (show) mirrorPostalAddress();
+    if (show) {
+      mirrorPostalAddress();
+      mirrorPostalIndex();
+    }
   }
 
   select.addEventListener('change', update);
@@ -235,6 +238,20 @@ function mirrorPostalAddress() {
   if (!orgAddressInput || !postalAddressInput) return;
   if (!postalAddressInput.value.trim()) {
     postalAddressInput.value = orgAddressInput.value.trim();
+  }
+}
+
+// Индекс не вводится пользователем вручную в блоке "Юридический адрес" — это
+// метаданные последней DaData-подсказки, которые applyPartySuggestion() кладёт
+// в data-атрибут #org-address (см. ниже). Зеркалим их в #postal-index теми же
+// двумя триггерами, что и mirrorPostalAddress — своего blur тут нет.
+function mirrorPostalIndex() {
+  const orgAddressInput = document.getElementById('org-address');
+  const postalIndexInput = document.getElementById('postal-index');
+  if (!orgAddressInput || !postalIndexInput) return;
+  const postalCode = orgAddressInput.dataset.postalCode;
+  if (postalCode && !postalIndexInput.value.trim()) {
+    postalIndexInput.value = postalCode;
   }
 }
 
@@ -350,7 +367,13 @@ function applyPartySuggestion(suggestion) {
 
   if (d.kpp) kppInput.value = d.kpp;
 
-  if (d.address && d.address.value) addressInput.value = d.address.value;
+  if (d.address && d.address.value) {
+    addressInput.value = d.address.value;
+    // Индекс — часть структурированных данных адреса DaData, отдельного видимого
+    // поля для него в блоке "Юридический адрес" нет, поэтому кладём в
+    // data-атрибут и переносим в #postal-index через mirrorPostalIndex().
+    addressInput.dataset.postalCode = (d.address.data && d.address.data.postal_code) || '';
+  }
 
   if (d.management && d.management.name && !headFioInput.value.trim()) {
     headFioInput.value = d.management.name;
@@ -361,6 +384,7 @@ function applyPartySuggestion(suggestion) {
   mirrorPostalOrgName();
   mirrorPostalHeadFio();
   mirrorPostalAddress();
+  mirrorPostalIndex();
 }
 
 function wireAddressSuggest() {

@@ -121,17 +121,71 @@ function uniqueCourseNames(listeners) {
   return names;
 }
 
+const DOCUMENT_TYPE_LABELS = {
+  contract: 'Договор',
+  state_contract: 'Контракт',
+  municipal_contract: 'Муниципальный контракт',
+};
+const LAW_TYPE_LABELS = { '44-fz': '44-ФЗ', '223-fz': '223-ФЗ' };
+const DELIVERY_LABELS = { sbis: 'СБИС', kontur: 'Контур', russian_post: 'Почтой России' };
+
+// xlsx-вложение содержит только данные слушателей (см. CONTRACT.md §2, колонки
+// фиксированы) — реквизиты организации/условия договора в него не попадают.
+// Поэтому комментарий в сделке должен быть самодостаточным: менеджер готовит
+// договор по тексту комментария, не открывая исходный payload формы.
 function buildCommentText(organization, listeners, coursesSummary, submittedAt) {
-  const applicantLine = organization.applicantType === 'individual'
-    ? `Физлицо: ${organization.headFio}`
-    : `Организация: ${organization.fullName}`;
-  return [
-    'Заявка на обучение через веб-форму.',
-    applicantLine,
-    `Слушателей: ${listeners.length}`,
-    `Курс(ы): ${coursesSummary || '—'}`,
-    `Отправлено: ${submittedAt}`,
-  ].join('\n');
+  const lines = ['Заявка на обучение через веб-форму.', ''];
+  const isIndividual = organization.applicantType === 'individual';
+
+  if (isIndividual) {
+    lines.push(`Физлицо: ${organization.headFio}`);
+    if (organization.selfEmployedOrUnemployed) {
+      lines.push('Занятость: самозанятый(ая) / временно не работает');
+    } else if (organization.workplace) {
+      lines.push(
+        `Место работы: ${organization.workplace}` +
+          (organization.workplaceInn ? ` (ИНН ${organization.workplaceInn})` : '')
+      );
+    }
+  } else {
+    lines.push(`Организация: ${organization.fullName}`);
+    lines.push(`ИНН: ${organization.inn}` + (organization.kpp ? `, КПП: ${organization.kpp}` : ''));
+    if (organization.address) lines.push(`Юр. адрес: ${organization.address}`);
+    lines.push('');
+    lines.push(`Тип документа: ${DOCUMENT_TYPE_LABELS[organization.documentType] || organization.documentType}`);
+    lines.push(`Закон-основание: ${LAW_TYPE_LABELS[organization.lawType] || organization.lawType}`);
+    lines.push(organization.ikzRequired ? `ИКЗ: ${organization.ikzNumber}` : 'ИКЗ не требуется');
+    lines.push(`Источник финансирования: ${organization.fundingSource}`);
+    lines.push('');
+    lines.push(`Контактное лицо: ${organization.headFio}`);
+  }
+
+  lines.push(`Email: ${organization.email}`);
+  lines.push(`Телефон: ${organization.phone}`);
+
+  lines.push('');
+  lines.push(
+    `Способ получения оригиналов: ${DELIVERY_LABELS[organization.originalsDelivery] || organization.originalsDelivery}`
+  );
+  if (organization.postalAddress) {
+    const p = organization.postalAddress;
+    const recipient = [p.orgName, p.headFio].filter(Boolean).join(', ');
+    lines.push(
+      `Почтовый адрес: ${p.index}, ${p.address}` + (recipient ? ` — получатель: ${recipient}` : '')
+    );
+  }
+
+  if (organization.comment) {
+    lines.push('');
+    lines.push(`Комментарий заявителя: ${organization.comment}`);
+  }
+
+  lines.push('');
+  lines.push(`Слушателей: ${listeners.length}`);
+  lines.push(`Курс(ы): ${coursesSummary || '—'}`);
+  lines.push(`Отправлено: ${submittedAt}`);
+
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
