@@ -196,7 +196,14 @@ function wireOriginalsDelivery() {
   const postalSection = document.getElementById('postal-address-section');
 
   function update() {
-    postalSection.hidden = select.value !== 'russian_post';
+    const show = select.value === 'russian_post';
+    postalSection.hidden = !show;
+    // В момент показа почтового блока подставляем юридический адрес: к этому
+    // времени #org-address может быть уже заполнен (в т.ч. автоподбором по ИНН),
+    // а blur по нему мог не сработать — пользователь просто выбрал способ
+    // доставки, а не покидал поле адреса. mirrorPostalAddress не перезапишет,
+    // если пользователь уже ввёл почтовый адрес вручную.
+    if (show) mirrorPostalAddress();
   }
 
   select.addEventListener('change', update);
@@ -219,6 +226,18 @@ function mirrorPostalHeadFio() {
   }
 }
 
+// Зеркалим юридический адрес организации (#org-address) в почтовый адрес
+// (#postal-address), только если тот ещё пуст. #org-address есть только у ЮЛ —
+// у ФЛ этого поля нет, поэтому для физлица ничего не подставится (это ожидаемо).
+function mirrorPostalAddress() {
+  const orgAddressInput = document.getElementById('org-address');
+  const postalAddressInput = document.getElementById('postal-address');
+  if (!orgAddressInput || !postalAddressInput) return;
+  if (!postalAddressInput.value.trim()) {
+    postalAddressInput.value = orgAddressInput.value.trim();
+  }
+}
+
 function wireOrgFieldMirroring() {
   // Зеркалим значения в поля почтового адреса, только если те ещё не заполнены
   // вручную — чтобы не заставлять пользователя вводить одно и то же дважды,
@@ -228,6 +247,7 @@ function wireOrgFieldMirroring() {
   // значение в поле программно, а не через реальный blur пользователя.
   document.getElementById('org-fullname').addEventListener('blur', mirrorPostalOrgName);
   document.getElementById('org-headfio').addEventListener('blur', mirrorPostalHeadFio);
+  document.getElementById('org-address').addEventListener('blur', mirrorPostalAddress);
 }
 
 function wireIkzToggle() {
@@ -340,6 +360,7 @@ function applyPartySuggestion(suggestion) {
   // blur не сработает само, поэтому зеркалирование в почтовый блок вызываем явно.
   mirrorPostalOrgName();
   mirrorPostalHeadFio();
+  mirrorPostalAddress();
 }
 
 function wireAddressSuggest() {
@@ -487,13 +508,14 @@ function onListenerCourseChange(rowEl) {
 // Порядок вкладок-папок: сначала в этом «человеческом» порядке, всё, чего тут
 // нет, — в конце по алфавиту. Реальный список берётся из данных (courses.json),
 // не хардкодится.
+// Примечание: разделы «Сколково»/«Сколково: ПП» намеренно идут с folder: null
+// (см. scripts/export-catalog.js) — отдельной вкладки в попапе у них нет,
+// поэтому и в порядке ниже их нет; courseFolders() всё равно отбрасывает null.
 const COURSE_FOLDER_ORDER = [
   'Курсы повышения квалификации',
   'Программы профессиональной переподготовки',
   'Охрана труда',
   'Логопедия и дефектология',
-  'Сколково',
-  'Сколково: ПП',
 ];
 const COURSE_MODAL_MAX = 60; // сколько совпадений максимум показываем в списке
 
@@ -932,22 +954,29 @@ function validateForm() {
     }
   });
 
-  // Запрет дублей email у разных слушателей (без учёта регистра и пробелов).
-  // Формат каждого email проверяется отдельно выше — это дополнительная проверка.
+  // Повтор email у слушателей — НЕ ошибка сам по себе: один человек может
+  // записаться на несколько курсов (одинаковые ФИО + одинаковый email в разных
+  // строках). Ошибка только если email совпадает, а ФИО РАЗНОЕ — это похоже на
+  // опечатку/перепутанные данные. Всё сравниваем без учёта регистра и пробелов.
   const emailsNorm = rows.map((row) => row.querySelector('.listener-email').value.trim().toLowerCase());
+  const fiosNorm = rows.map((row) => row.querySelector('.listener-fio').value.trim().replace(/\s+/g, ' ').toLowerCase());
+
   rows.forEach((row, index) => {
     const email = emailsNorm[index];
     if (!email) return;
-    const firstIdx = emailsNorm.indexOf(email);
-    if (firstIdx !== index) {
-      const emailInput = row.querySelector('.listener-email');
-      markInvalid(
-        emailInput,
-        errors,
-        `Email слушателя ${index + 1} совпадает с email слушателя ${firstIdx + 1} — укажите разные адреса.`
-      );
-      // первую строку с этим же email тоже подсвечиваем как невалидную
-      rows[firstIdx].querySelector('.listener-email').classList.add('field-invalid');
+    // Ищем среди ПРЕДЫДУЩИХ строк такую же почту, но с другим ФИО.
+    for (let j = 0; j < index; j += 1) {
+      if (emailsNorm[j] === email && fiosNorm[j] !== fiosNorm[index]) {
+        const emailInput = row.querySelector('.listener-email');
+        markInvalid(
+          emailInput,
+          errors,
+          `Email слушателя ${index + 1} совпадает с email слушателя ${j + 1}, но ФИО разные — проверьте данные.`
+        );
+        // строку-«первоисточник» тоже подсвечиваем, чтобы было видно обе
+        rows[j].querySelector('.listener-email').classList.add('field-invalid');
+        break; // одного совпадения достаточно, чтобы пометить строку
+      }
     }
   });
 
