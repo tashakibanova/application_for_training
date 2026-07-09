@@ -158,6 +158,7 @@ function buildCommentText(organization, listeners, coursesSummary, submittedAt) 
     lines.push(`Источник финансирования: ${organization.fundingSource}`);
     lines.push('');
     lines.push(`Контактное лицо: ${organization.headFio}`);
+    lines.push(`Телефон: ${organization.phone}`);
   }
 
   lines.push('');
@@ -204,7 +205,7 @@ function validateSubmitPayload(payload) {
   }
 
   if (org.applicantType === 'legal_entity') {
-    const requiredOrgFields = ['fullName', 'inn', 'documentType', 'lawType', 'fundingSource'];
+    const requiredOrgFields = ['fullName', 'inn', 'documentType', 'lawType', 'fundingSource', 'phone'];
     for (const field of requiredOrgFields) {
       if (!org[field]) return `missing_organization.${field}`;
     }
@@ -212,20 +213,21 @@ function validateSubmitPayload(payload) {
     if (org.ikzRequired && !org.ikzNumber) return 'missing_organization.ikzNumber';
   }
 
-  // email/phone на уровне organization намеренно нет — их роль выполняют
-  // email/phone слушателей (listeners[].email/phone), см. CONTRACT.md §2.
+  // email на уровне organization намеренно нет — его роль выполняет email
+  // слушателей (listeners[].email), см. CONTRACT.md §2. phone для ЮЛ
+  // проверен выше (в requiredOrgFields), для ФЛ его нет вообще.
   const requiredContactFields = ['headFio', 'originalsDelivery'];
   for (const field of requiredContactFields) {
     if (!org[field]) return `missing_organization.${field}`;
   }
 
-  if (org.originalsDelivery === 'russian_post') {
-    if (!org.postalAddress || typeof org.postalAddress !== 'object') {
-      return 'missing_organization.postalAddress';
-    }
-    if (!org.postalAddress.index || !org.postalAddress.address || !org.postalAddress.headFio) {
-      return 'missing_organization.postalAddress_fields';
-    }
+  // Почтовый адрес больше не завязан на originalsDelivery — форма всегда его
+  // собирает, поэтому он всегда обязателен (см. CONTRACT.md §2).
+  if (!org.postalAddress || typeof org.postalAddress !== 'object') {
+    return 'missing_organization.postalAddress';
+  }
+  if (!org.postalAddress.index || !org.postalAddress.address || !org.postalAddress.headFio) {
+    return 'missing_organization.postalAddress_fields';
   }
 
   if (!Array.isArray(payload.listeners) || payload.listeners.length === 0) {
@@ -309,15 +311,17 @@ async function sendToAppsScript(sheet, row) {
 }
 
 async function sendUnboundRow(payload, coursesSummary, xlsxBase64, note) {
-  // На уровне organization нет своих email/phone (см. CONTRACT.md §2) — для
-  // ручной разборки незакреплённой заявки берём контакт первого слушателя.
+  // На уровне organization нет email (см. CONTRACT.md §2) — для ручной
+  // разборки незакреплённой заявки берём email первого слушателя. Телефон
+  // есть у ЮЛ (organization.phone) — используем его, если есть, иначе тоже
+  // телефон первого слушателя (ФЛ или fallback).
   const firstListener = payload.listeners && payload.listeners[0];
   const row = {
     receivedAt: new Date().toISOString(),
     organizationName: applicantDisplayName(payload.organization),
     inn: payload.organization.inn,
     contactEmail: (firstListener && firstListener.email) || null,
-    contactPhone: (firstListener && firstListener.phone) || null,
+    contactPhone: payload.organization.phone || (firstListener && firstListener.phone) || null,
     listenersCount: payload.listeners.length,
     coursesSummary,
     note,

@@ -102,7 +102,12 @@ function init() {
     const postalCode = s.data && s.data.postal_code;
     if (postalCode) document.getElementById('postal-index').value = postalCode;
   });
-  wireOriginalsDelivery();
+  // Почтовый адрес больше не завязан на способ получения оригиналов — блок
+  // всегда виден (см. index.html), поэтому просто пробуем смёрджить значения
+  // один раз на старте (на случай, если браузер восстановил org-address
+  // автозаполнением до того, как отработал остальной JS).
+  mirrorPostalAddress();
+  mirrorPostalIndex();
   wireFlEmployment();
   wirePostalHeadFioSelfCheck();
   wireCourseModal();
@@ -314,29 +319,6 @@ function wirePostalHeadFioSelfCheck() {
     r.addEventListener('change', update);
   });
 
-  update();
-}
-
-// Почтовый адрес нужен, только если оригиналы договора отправляются почтой.
-function wireOriginalsDelivery() {
-  const select = document.getElementById('org-originals-delivery');
-  const postalSection = document.getElementById('postal-address-section');
-
-  function update() {
-    const show = select.value === 'russian_post';
-    postalSection.hidden = !show;
-    // В момент показа почтового блока подставляем юридический адрес: к этому
-    // времени #org-address может быть уже заполнен (в т.ч. автоподбором по ИНН),
-    // а blur по нему мог не сработать — пользователь просто выбрал способ
-    // доставки, а не покидал поле адреса. mirrorPostalAddress не перезапишет,
-    // если пользователь уже ввёл почтовый адрес вручную.
-    if (show) {
-      mirrorPostalAddress();
-      mirrorPostalIndex();
-    }
-  }
-
-  select.addEventListener('change', update);
   update();
 }
 
@@ -1045,31 +1027,41 @@ function validateForm() {
   const originalsDelivery = document.getElementById('org-originals-delivery');
   if (!originalsDelivery.value) markInvalid(originalsDelivery, errors, 'Выберите способ получения оригиналов договора.');
 
-  if (originalsDelivery.value === 'russian_post') {
-    const postalIndex = document.getElementById('postal-index');
-    const postalIndexDigits = onlyDigits(postalIndex.value);
-    if (!postalIndexDigits) {
-      markInvalid(postalIndex, errors, 'Укажите индекс почтового адреса.');
-    } else if (postalIndexDigits.length !== 6) {
-      markInvalid(postalIndex, errors, 'Индекс должен содержать 6 цифр.');
-    }
+  // Почтовый адрес больше не завязан на способ получения оригиналов — блок
+  // всегда виден в форме, поэтому и проверяется всегда, а не только при
+  // выборе конкретного способа доставки.
+  const postalIndex = document.getElementById('postal-index');
+  const postalIndexDigits = onlyDigits(postalIndex.value);
+  if (!postalIndexDigits) {
+    markInvalid(postalIndex, errors, 'Укажите индекс почтового адреса.');
+  } else if (postalIndexDigits.length !== 6) {
+    markInvalid(postalIndex, errors, 'Индекс должен содержать 6 цифр.');
+  }
 
-    const postalAddressLine = document.getElementById('postal-address');
-    if (!postalAddressLine.value.trim()) markInvalid(postalAddressLine, errors, 'Укажите почтовый адрес (улица, дом).');
+  const postalAddressLine = document.getElementById('postal-address');
+  if (!postalAddressLine.value.trim()) markInvalid(postalAddressLine, errors, 'Укажите почтовый адрес (улица, дом).');
 
-    if (!isIndividual) {
-      const postalOrgName = document.getElementById('postal-orgname');
-      if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
-    }
+  if (!isIndividual) {
+    const postalOrgName = document.getElementById('postal-orgname');
+    if (!postalOrgName.value.trim()) markInvalid(postalOrgName, errors, 'Укажите наименование учреждения в почтовом адресе.');
+  }
 
-    // ФИО получателя. Для ЮЛ — отдельное обязательное поле. Для ФЛ проверяем,
-    // только если снят чекбокс "Получатель — это я": если он отмечен, значение
-    // берётся из "ФИО заявителя" (#fl-headfio), которое валидируется ниже.
-    const selfCheck = document.getElementById('postal-headfio-selfcheck');
-    const postalSelf = isIndividual && selfCheck && selfCheck.checked;
-    if (!postalSelf) {
-      const postalHeadFio = document.getElementById('postal-headfio');
-      if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
+  // ФИО получателя. Для ЮЛ — отдельное обязательное поле. Для ФЛ проверяем,
+  // только если снят чекбокс "Получатель — это я": если он отмечен, значение
+  // берётся из "ФИО заявителя" (#fl-headfio), которое валидируется ниже.
+  const selfCheck = document.getElementById('postal-headfio-selfcheck');
+  const postalSelf = isIndividual && selfCheck && selfCheck.checked;
+  if (!postalSelf) {
+    const postalHeadFio = document.getElementById('postal-headfio');
+    if (!postalHeadFio.value.trim()) markInvalid(postalHeadFio, errors, 'Укажите ФИО получателя для почтового адреса.');
+  }
+
+  if (!isIndividual) {
+    const orgPhone = document.getElementById('org-phone');
+    if (!orgPhone.value.trim()) {
+      markInvalid(orgPhone, errors, 'Укажите телефон контактного лица.');
+    } else if (!isValidPhoneDigits(orgPhone.value)) {
+      markInvalid(orgPhone, errors, 'Телефон указан в неверном формате.');
     }
   }
 
@@ -1206,7 +1198,6 @@ function buildPayload() {
   const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
   const comment = document.getElementById('org-comment').value.trim();
   const originalsDelivery = document.getElementById('org-originals-delivery').value;
-  const needsPostalAddress = originalsDelivery === 'russian_post';
 
   const organization = {
     applicantType,
@@ -1225,7 +1216,8 @@ function buildPayload() {
     workplaceInn: isIndividual ? onlyDigits(document.getElementById('fl-inn').value) || null : null,
     selfEmployedOrUnemployed: isIndividual ? document.getElementById('fl-unemployed').checked : null,
 
-    postalAddress: needsPostalAddress ? {
+    // Почтовый адрес больше не завязан на способ доставки — собирается всегда.
+    postalAddress: {
       index: onlyDigits(document.getElementById('postal-index').value),
       address: document.getElementById('postal-address').value.trim(),
       orgName: isIndividual ? null : document.getElementById('postal-orgname').value.trim(),
@@ -1233,11 +1225,12 @@ function buildPayload() {
       // заявителя" (#fl-headfio), иначе — то, что вписано вручную в #postal-headfio.
       // Для ЮЛ — как раньше, из #postal-headfio.
       headFio: postalHeadFioValue(isIndividual),
-    } : null,
+    },
 
     headFio: isIndividual
       ? document.getElementById('fl-headfio').value.trim()
       : document.getElementById('org-headfio').value.trim(),
+    phone: isIndividual ? null : normalizePhone(document.getElementById('org-phone').value),
     originalsDelivery,
     comment: comment || null,
   };

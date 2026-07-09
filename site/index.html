@@ -186,12 +186,11 @@
             <option value="" disabled selected>Выберите способ</option>
             <option value="sbis">СБИС</option>
             <option value="kontur">Контур</option>
-            <option value="russian_post">Почтой России</option>
           </select>
         </div>
       </div>
 
-      <div class="subsection" id="postal-address-section" hidden>
+      <div class="subsection" id="postal-address-section">
         <h3 class="subsection__title">Почтовый адрес для отправки документов</h3>
 
         <div class="field">
@@ -225,6 +224,11 @@
         <div class="field legal-entity-only">
           <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
           <input type="text" id="org-headfio" name="headFio" autocomplete="name">
+        </div>
+
+        <div class="field legal-entity-only">
+          <label for="org-phone">Телефон <span class="req">*</span></label>
+          <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67">
         </div>
 
         <div class="field">

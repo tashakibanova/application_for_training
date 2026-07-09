@@ -84,7 +84,8 @@
       "headFio": "Иванова Мария Петровна"
     },
     "headFio": "Иванова Мария Петровна",
-    "originalsDelivery": "russian_post",
+    "phone": "+79991234567",
+    "originalsDelivery": "sbis",
     "comment": "Свободный текст комментария"
   },
   "listeners": [
@@ -120,13 +121,14 @@
     "selfEmployedOrUnemployed": false,
     "postalAddress": { "index": "123456", "address": "...", "orgName": null, "headFio": "Петров Пётр Петрович" },
     "headFio": "Петров Пётр Петрович",
-    "originalsDelivery": "russian_post",
+    "phone": null,
+    "originalsDelivery": "sbis",
     "comment": null
   }
 }
 ```
 
-У `organization` намеренно нет собственных `email`/`phone` — email и телефон слушателей (`listeners[].email`/`listeners[].phone`) уже покрывают контакты по заявке, дублировать их на уровне организации не нужно (решение заказчика). Если понадобится контакт для заявок без сделки (см. §4.1) — используется email/телефон первого слушателя.
+У `organization` намеренно нет `email` — email слушателей (`listeners[].email`) уже покрывает контакты по заявке, дублировать на уровне организации не нужно (решение заказчика). `phone` на уровне организации всё же есть, но только для ЮЛ (телефон контактного лица) — для ФЛ он не нужен отдельно (сам заявитель обычно фигурирует и как слушатель). Если понадобится контакт для заявок без сделки (см. §4.1) — используется `organization.phone` (если есть) или email/телефон первого слушателя.
 
 Поля:
 - `dealId`: строка или `null`, если параметра `?deal=` не было в URL.
@@ -138,8 +140,9 @@
 - `organization.workplace`: строка или `null` — заполняется только при `applicantType === "individual"`, необязательно (может быть пустым, если указан `selfEmployedOrUnemployed: true`).
 - `organization.workplaceInn`: строка (10 или 12 цифр) или `null` — ИНН места работы физлица; заполняется только при `applicantType === "individual"` (для ЮЛ всегда `null`), автоподставляет название организации в `workplace` через DaData. Обязателен вместе с `workplace`, если `selfEmployedOrUnemployed !== true`.
 - `organization.selfEmployedOrUnemployed`: boolean | `null` — только при `applicantType === "individual"`; при отправке обязательно `workplace` ИЛИ `selfEmployedOrUnemployed === true`.
-- `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"`.
-- `organization.postalAddress`: объект или `null` — заполняется и обязателен, **только если** `originalsDelivery === "russian_post"`, иначе `null`.
+- `organization.phone`: строка или `null` — телефон контактного лица; обязателен при `applicantType === "legal_entity"`, для `"individual"` всегда `null`.
+- `organization.originalsDelivery` ∈ `"sbis" | "kontur"` — способ получения оригиналов договора, больше не связан с наличием почтового адреса (см. ниже).
+- `organization.postalAddress`: объект, **всегда присутствует и обязателен** (независимо от `originalsDelivery` — почтовый адрес собирается всегда, не только при доставке почтой).
   - `postalAddress.address` — сам адрес (улица/дом), обязателен вместе с `index`/`headFio`.
   - `postalAddress.orgName` — наименование учреждения-получателя; заполняется только при `applicantType === "legal_entity"`, иначе `null`.
 - `listeners[].position`: строка или `null` (только для курсов с `category != null`).
