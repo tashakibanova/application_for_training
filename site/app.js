@@ -28,6 +28,9 @@ const DADATA_BANK_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/fi
 
 const state = {
   dealId: null,
+  // true, если dealId пришёл из ?deal= в URL (клиент открыл готовую ссылку от
+  // менеджера) — тогда блок "Ссылка для клиента" ему самому показывать незачем.
+  dealIdFromUrl: false,
   courses: [],
   startedAt: null,
   submittedAt: null,
@@ -138,6 +141,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 function init() {
   state.dealId = new URLSearchParams(window.location.search).get('deal') || null;
+  state.dealIdFromUrl = !!state.dealId;
   wireDealIdInput();
   renderDealNotice();
 
@@ -220,9 +224,11 @@ function wireDealIdInput() {
 
 function renderDealNotice() {
   const el = document.getElementById('deal-notice');
-  if (state.dealId) {
+  if (state.dealId && !state.dealIdFromUrl) {
     // Показываем менеджеру готовую ссылку с номером договора — чтобы отправить
     // её клиенту, а не голый URL сайта (иначе заявка придёт непривязанной).
+    // Если dealId уже пришёл из ?deal= (клиент открыл готовую ссылку) — блок
+    // ему самому не нужен, это видно из условия выше.
     const link = location.origin + location.pathname + '?deal=' + encodeURIComponent(state.dealId);
     el.innerHTML = '';
 
