@@ -151,6 +151,15 @@ function buildCommentText(organization, listeners, coursesSummary, submittedAt) 
     lines.push(`Организация: ${organization.fullName}`);
     lines.push(`ИНН: ${organization.inn}` + (organization.kpp ? `, КПП: ${organization.kpp}` : ''));
     if (organization.address) lines.push(`Юр. адрес: ${organization.address}`);
+    if (organization.bankName) {
+      lines.push('');
+      lines.push(`Банк: ${organization.bankName}`);
+      lines.push(`БИК ${organization.bik}`);
+      lines.push(`Р/с ${organization.settlementAccount}`);
+      lines.push(`Кор.счет ${organization.correspondentAccount}`);
+      if (organization.personalAccount) lines.push(`Л/с ${organization.personalAccount}`);
+      if (organization.bankExtra) lines.push(`Доп. данные: ${organization.bankExtra}`);
+    }
     lines.push('');
     lines.push(`Тип документа: ${DOCUMENT_TYPE_LABELS[organization.documentType] || organization.documentType}`);
     lines.push(`Закон-основание: ${LAW_TYPE_LABELS[organization.lawType] || organization.lawType}`);
@@ -159,6 +168,7 @@ function buildCommentText(organization, listeners, coursesSummary, submittedAt) 
     lines.push('');
     lines.push(`Контактное лицо: ${organization.headFio}`);
     lines.push(`Телефон: ${organization.phone}`);
+    if (organization.email) lines.push(`Email: ${organization.email}`);
   }
 
   lines.push('');
@@ -205,7 +215,10 @@ function validateSubmitPayload(payload) {
   }
 
   if (org.applicantType === 'legal_entity') {
-    const requiredOrgFields = ['fullName', 'inn', 'documentType', 'lawType', 'fundingSource', 'phone'];
+    const requiredOrgFields = [
+      'fullName', 'inn', 'documentType', 'lawType', 'fundingSource', 'phone', 'email',
+      'bankName', 'bik', 'settlementAccount', 'correspondentAccount',
+    ];
     for (const field of requiredOrgFields) {
       if (!org[field]) return `missing_organization.${field}`;
     }
@@ -213,9 +226,9 @@ function validateSubmitPayload(payload) {
     if (org.ikzRequired && !org.ikzNumber) return 'missing_organization.ikzNumber';
   }
 
-  // email на уровне organization намеренно нет — его роль выполняет email
-  // слушателей (listeners[].email), см. CONTRACT.md §2. phone для ЮЛ
-  // проверен выше (в requiredOrgFields), для ФЛ его нет вообще.
+  // email/phone на уровне organization — контакты контактного лица, обязательны
+  // для ЮЛ (проверены выше в requiredOrgFields); для ФЛ их нет вообще, роль
+  // контактов выполняет email/телефон слушателей (см. CONTRACT.md §2).
   const requiredContactFields = ['headFio', 'originalsDelivery'];
   for (const field of requiredContactFields) {
     if (!org[field]) return `missing_organization.${field}`;
@@ -311,16 +324,15 @@ async function sendToAppsScript(sheet, row) {
 }
 
 async function sendUnboundRow(payload, coursesSummary, xlsxBase64, note) {
-  // На уровне organization нет email (см. CONTRACT.md §2) — для ручной
-  // разборки незакреплённой заявки берём email первого слушателя. Телефон
-  // есть у ЮЛ (organization.phone) — используем его, если есть, иначе тоже
-  // телефон первого слушателя (ФЛ или fallback).
+  // Контакты контактного лица (email/phone) есть только у ЮЛ — используем их,
+  // если есть, иначе для ручной разборки незакреплённой заявки берём email/
+  // телефон первого слушателя (ФЛ или fallback), см. CONTRACT.md §2.
   const firstListener = payload.listeners && payload.listeners[0];
   const row = {
     receivedAt: new Date().toISOString(),
     organizationName: applicantDisplayName(payload.organization),
     inn: payload.organization.inn,
-    contactEmail: (firstListener && firstListener.email) || null,
+    contactEmail: payload.organization.email || (firstListener && firstListener.email) || null,
     contactPhone: payload.organization.phone || (firstListener && firstListener.phone) || null,
     listenersCount: payload.listeners.length,
     coursesSummary,

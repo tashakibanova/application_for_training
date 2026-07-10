@@ -74,6 +74,12 @@
     "ikzRequired": true,
     "ikzNumber": "223110123456712345100100000000000",
     "fundingSource": "Средства местного бюджета",
+    "bankName": "ОКЦ № 1 ДГУ Банка России //УФК по Приморскому краю, г. Владивосток",
+    "bik": "010507002",
+    "settlementAccount": "03234643057050002001",
+    "correspondentAccount": "40102810545370000012",
+    "personalAccount": "20206205690",
+    "bankExtra": null,
     "workplace": null,
     "workplaceInn": null,
     "selfEmployedOrUnemployed": null,
@@ -85,6 +91,7 @@
     },
     "headFio": "Иванова Мария Петровна",
     "phone": "+79991234567",
+    "email": "school1@example.com",
     "originalsDelivery": "sbis",
     "comment": "Свободный текст комментария"
   },
@@ -108,7 +115,7 @@
 }
 ```
 
-Для физического лица (`applicantType: "individual"`) все поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`) — `null`, вместо них заполнены `workplace`/`selfEmployedOrUnemployed`, а `postalAddress.orgName` — тоже `null` (у физлица нет наименования учреждения-получателя):
+Для физического лица (`applicantType: "individual"`) все поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`, `bankName`, `bik`, `settlementAccount`, `correspondentAccount`, `personalAccount`) — `null`, вместо них заполнены `workplace`/`selfEmployedOrUnemployed`, а `postalAddress.orgName` — тоже `null` (у физлица нет наименования учреждения-получателя):
 
 ```json
 {
@@ -116,24 +123,26 @@
     "applicantType": "individual",
     "fullName": null, "inn": null, "kpp": null, "address": null,
     "documentType": null, "lawType": null, "ikzRequired": null, "ikzNumber": null, "fundingSource": null,
+    "bankName": null, "bik": null, "settlementAccount": null, "correspondentAccount": null, "personalAccount": null, "bankExtra": null,
     "workplace": "ООО «Ромашка», бухгалтер",
     "workplaceInn": "7707083893",
     "selfEmployedOrUnemployed": false,
     "postalAddress": { "index": "123456", "address": "...", "orgName": null, "headFio": "Петров Пётр Петрович" },
     "headFio": "Петров Пётр Петрович",
     "phone": null,
+    "email": null,
     "originalsDelivery": "sbis",
     "comment": null
   }
 }
 ```
 
-У `organization` намеренно нет `email` — email слушателей (`listeners[].email`) уже покрывает контакты по заявке, дублировать на уровне организации не нужно (решение заказчика). `phone` на уровне организации всё же есть, но только для ЮЛ (телефон контактного лица) — для ФЛ он не нужен отдельно (сам заявитель обычно фигурирует и как слушатель). Если понадобится контакт для заявок без сделки (см. §4.1) — используется `organization.phone` (если есть) или email/телефон первого слушателя.
+`email` и `phone` на уровне организации — контакты контактного лица, есть только для ЮЛ; для ФЛ оба `null` (сам заявитель обычно фигурирует и как слушатель, его контакты — в `listeners[].email`/`listeners[].phone`). Если понадобится контакт для заявок без сделки (см. §4.1) — используется `organization.email`/`organization.phone` (если есть) или email/телефон первого слушателя.
 
 Поля:
 - `dealId`: строка или `null`, если параметра `?deal=` не было в URL.
 - `organization.applicantType` ∈ `"legal_entity" | "individual"` — определяет, какие поля обязательны (см. ниже).
-- Поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`) — заполнены и обязательны только при `applicantType === "legal_entity"`, иначе все `null`.
+- Поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`, `bankName`, `bik`, `settlementAccount`, `correspondentAccount`, `personalAccount`, `bankExtra`) — заполнены только при `applicantType === "legal_entity"`, иначе все `null`. Обязательны все, кроме `kpp`, `address`, `ikzNumber` (условно), `personalAccount` и `bankExtra` (см. ниже).
 - `organization.documentType` ∈ `"contract" | "state_contract" | "municipal_contract"` | `null`.
 - `organization.lawType` ∈ `"44-fz" | "223-fz"` | `null`.
 - `organization.ikzRequired`: boolean | `null`; `ikzNumber` обязателен, только если `true`.
@@ -141,6 +150,14 @@
 - `organization.workplaceInn`: строка (10 или 12 цифр) или `null` — ИНН места работы физлица; заполняется только при `applicantType === "individual"` (для ЮЛ всегда `null`), автоподставляет название организации в `workplace` через DaData. Обязателен вместе с `workplace`, если `selfEmployedOrUnemployed !== true`.
 - `organization.selfEmployedOrUnemployed`: boolean | `null` — только при `applicantType === "individual"`; при отправке обязательно `workplace` ИЛИ `selfEmployedOrUnemployed === true`.
 - `organization.phone`: строка или `null` — телефон контактного лица; обязателен при `applicantType === "legal_entity"`, для `"individual"` всегда `null`.
+- `organization.email`: строка или `null` — email контактного лица; обязателен при `applicantType === "legal_entity"`, для `"individual"` всегда `null` (как `phone`).
+- Банковские реквизиты — только для ЮЛ (для ФЛ все `null`):
+  - `organization.bankName`: строка или `null` — полное наименование банка; обязателен. Автоподставляется по БИК через DaData (`findById/bank`, поле `name.payment`), можно поправить руками.
+  - `organization.bik`: строка (9 цифр) или `null` — БИК банка; обязателен.
+  - `organization.settlementAccount`: строка (только цифры) или `null` — расчётный/казначейский счёт; обязателен. DaData его не знает — вводится вручную.
+  - `organization.correspondentAccount`: строка (только цифры) или `null` — корреспондентский счёт (ЕКС); обязателен. Автоподставляется по БИК через DaData (`correspondent_account`).
+  - `organization.personalAccount`: строка (только цифры) или `null` — лицевой счёт; **необязателен** (есть не у всех организаций). DaData его не знает — вводится вручную.
+  - `organization.bankExtra`: строка или `null` — свободный текст для любых дополнительных данных в банковских реквизитах, которые не поместились в остальные поля; **необязателен**.
 - `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"` — способ получения оригиналов договора (`"sbis"` — через ЭДО СБИС, `"kontur"` — через ЭДО Контур, `"russian_post"` — Почтой России; ключ `russian_post`, а не `postal`, чтобы совпадать с уже существующим `DELIVERY_LABELS` в yandex-function/index.js), больше не связан с наличием почтового адреса (см. ниже).
 - `organization.postalAddress`: объект, **всегда присутствует и обязателен** (независимо от `originalsDelivery` — почтовый адрес собирается всегда, не только при доставке почтой).
   - `postalAddress.address` — сам адрес (улица/дом), обязателен вместе с `index`/`headFio`.

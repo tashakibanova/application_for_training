@@ -78,6 +78,32 @@
         </div>
       </fieldset>
 
+      <div class="subsection">
+        <h3 class="subsection__title legal-entity-only">Контактное лицо</h3>
+
+        <div class="field legal-entity-only">
+          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
+          <input type="text" id="org-headfio" name="headFio" autocomplete="name">
+        </div>
+
+        <div class="grid-2">
+          <div class="field legal-entity-only">
+            <label for="org-phone">Телефон <span class="req">*</span></label>
+            <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67">
+          </div>
+
+          <div class="field legal-entity-only">
+            <label for="org-email">Email <span class="req">*</span></label>
+            <input type="email" id="org-email" name="email" autocomplete="email" placeholder="name@example.com">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="org-comment">Дополнительный комментарий</label>
+          <textarea id="org-comment" name="comment" rows="3" placeholder="Необязательно"></textarea>
+        </div>
+      </div>
+
       <div class="subsection legal-entity-only">
         <h3 class="subsection__title">Реквизиты учреждения</h3>
 
@@ -90,6 +116,43 @@
         <div class="field">
           <label for="org-fullname">Полное наименование учреждения <span class="req">*</span></label>
           <input type="text" id="org-fullname" name="fullName" autocomplete="organization">
+        </div>
+
+        <h4 class="subsection__subtitle">Банковские реквизиты</h4>
+
+        <div class="field">
+          <label for="org-bank-name">Банк <span class="req">*</span></label>
+          <input type="text" id="org-bank-name" name="bankName" placeholder="подставится по БИК, можно поправить">
+        </div>
+
+        <div class="grid-2">
+          <div class="field field--relative">
+            <label for="org-bik">БИК <span class="req">*</span></label>
+            <input type="text" id="org-bik" name="bik" inputmode="numeric" maxlength="9" placeholder="9 цифр">
+            <p class="hint" id="bik-status" aria-live="polite"></p>
+          </div>
+
+          <div class="field">
+            <label for="org-corr-account">Кор. счёт <span class="req">*</span></label>
+            <input type="text" id="org-corr-account" name="correspondentAccount" inputmode="numeric" maxlength="20" placeholder="подставится по БИК">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="org-settlement-account">Расчётный / казначейский счёт <span class="req">*</span></label>
+            <input type="text" id="org-settlement-account" name="settlementAccount" inputmode="numeric" maxlength="20" placeholder="20 цифр">
+          </div>
+
+          <div class="field">
+            <label for="org-personal-account">Лицевой счёт</label>
+            <input type="text" id="org-personal-account" name="personalAccount" inputmode="numeric" maxlength="20" placeholder="если есть">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="org-bank-extra">Дополнительные данные</label>
+          <textarea id="org-bank-extra" name="bankExtra" rows="2" placeholder="Если имеются дополнительные данные в реквизитах организации — пожалуйста, укажите их в этом поле"></textarea>
         </div>
 
         <div class="grid-2">
@@ -219,25 +282,6 @@
           </label>
           <label for="postal-headfio">ФИО получателя <span class="req">*</span></label>
           <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится автоматически">
-        </div>
-      </div>
-
-      <div class="subsection">
-        <h3 class="subsection__title legal-entity-only">Контактное лицо</h3>
-
-        <div class="field legal-entity-only">
-          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
-          <input type="text" id="org-headfio" name="headFio" autocomplete="name">
-        </div>
-
-        <div class="field legal-entity-only">
-          <label for="org-phone">Телефон <span class="req">*</span></label>
-          <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67">
-        </div>
-
-        <div class="field">
-          <label for="org-comment">Дополнительный комментарий</label>
-          <textarea id="org-comment" name="comment" rows="3" placeholder="Необязательно"></textarea>
         </div>
       </div>
     </section>

@@ -20,6 +20,7 @@ const TRACK_URL = FUNCTION_BASE_URL + '?action=track';
 
 const DADATA_PARTY_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party';
 const DADATA_ADDRESS_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
+const DADATA_BANK_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/bank';
 
 /* =====================================================================
  * Состояние приложения
@@ -52,6 +53,64 @@ function onlyDigits(value) {
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value || '').trim());
+}
+
+// Частые почтовые домены — только для мягкой подсказки об опечатке
+// (например gmial.com -> gmail.com). Список НЕ ограничивает разрешённые
+// домены: письмо на неизвестный домен (корпоративная почта и т.п.)
+// проходит валидацию как обычно, isValidEmail() тут не меняется.
+const COMMON_EMAIL_DOMAINS = [
+  'gmail.com', 'yandex.ru', 'ya.ru', 'mail.ru', 'bk.ru', 'inbox.ru',
+  'list.ru', 'rambler.ru', 'outlook.com', 'hotmail.com', 'icloud.com',
+  'yahoo.com', 'mail.com',
+];
+
+// Расстояние Дамерау-Левенштейна (с учётом соседних перестановок букв —
+// самая частая опечатка при наборе, напр. "mial" вместо "mail").
+function damerauLevenshtein(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const d = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) d[i][0] = i;
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+      }
+    }
+  }
+  return d[m][n];
+}
+
+// Если домен похож на один из частых доменов (но не совпадает с ним) —
+// возвращает исправленный email, иначе null. Порог "похожести": короткие
+// домены (до 6 символов, напр. ya.ru, bk.ru) — 1 опечатка, домены длиннее —
+// до 2, иначе слишком много ложных срабатываний на реально другие домены.
+function suggestEmailFix(value) {
+  const trimmed = (value || '').trim();
+  const at = trimmed.lastIndexOf('@');
+  if (at === -1) return null;
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1).toLowerCase();
+  if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return null;
+
+  let best = null;
+  let bestDistance = Infinity;
+  for (const candidate of COMMON_EMAIL_DOMAINS) {
+    const distance = damerauLevenshtein(domain, candidate);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  const threshold = best && best.length <= 6 ? 1 : 2;
+  if (best && bestDistance > 0 && bestDistance <= threshold) {
+    return local + '@' + best;
+  }
+  return null;
 }
 
 function normalizePhone(raw) {
@@ -87,6 +146,7 @@ function init() {
   wireIkzToggle();
   wireInnAutofill('org-inn', 'inn-status', applyPartySuggestion);
   wireInnAutofill('fl-inn', 'fl-inn-status', applyWorkplaceSuggestion);
+  wireBikAutofill();
   // Юр.адрес: выбор подсказки только подставляет сам адрес (индекс тут отдельного
   // поля не имеет — он уходит в data-атрибут для зеркалирования, см. ниже).
   wireAddressSuggest('org-address', 'org-address-suggestions', (s) => {
@@ -546,6 +606,77 @@ function applyPartySuggestion(suggestion) {
   mirrorPostalHeadFio();
   mirrorPostalAddress();
   mirrorPostalIndex();
+}
+
+// Автоподбор банка по БИК через DaData (findById/bank). При полном вводе 9 цифр
+// подставляет полное наименование банка (#org-bank-name) и корреспондентский
+// счёт (#org-corr-account). Расчётный/казначейский и лицевой счета DaData не
+// знает — их вводят только вручную. По стилю совпадает с wireInnAutofill.
+function wireBikAutofill() {
+  const bikInput = document.getElementById('org-bik');
+  const statusEl = document.getElementById('bik-status');
+  if (!bikInput || !statusEl) return;
+
+  const lookup = debounce(async (bik) => {
+    if (DADATA_TOKEN.startsWith('REPLACE-ME')) {
+      statusEl.textContent =
+        'Автоподбор по БИК недоступен: не задан ключ DaData (см. TODO в app.js). Заполните поля вручную.';
+      statusEl.className = 'hint hint--error';
+      return;
+    }
+    statusEl.textContent = 'Ищем банк по БИК...';
+    statusEl.className = 'hint';
+    try {
+      const suggestion = await suggestBankByBik(bik);
+      if (!suggestion) {
+        statusEl.textContent = 'Банк с таким БИК не найден, заполните поля вручную.';
+        statusEl.className = 'hint hint--error';
+        return;
+      }
+      applyBankSuggestion(suggestion);
+      statusEl.textContent = 'Банк найден, поля подставлены — проверьте и при необходимости поправьте.';
+      statusEl.className = 'hint hint--ok';
+    } catch (err) {
+      console.error('DaData bank lookup error:', err);
+      statusEl.textContent = 'Не удалось обратиться к DaData. Заполните поля вручную.';
+      statusEl.className = 'hint hint--error';
+    }
+  }, 500);
+
+  bikInput.addEventListener('input', () => {
+    bikInput.value = onlyDigits(bikInput.value).slice(0, 9);
+    if (bikInput.value.length === 9) {
+      lookup(bikInput.value);
+    } else {
+      statusEl.textContent = '';
+      statusEl.className = 'hint';
+    }
+  });
+}
+
+async function suggestBankByBik(bik) {
+  const res = await fetch(DADATA_BANK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: 'Token ' + DADATA_TOKEN,
+    },
+    body: JSON.stringify({ query: bik, count: 1 }),
+  });
+  if (!res.ok) throw new Error('DaData HTTP ' + res.status);
+  const data = await res.json();
+  return data.suggestions && data.suggestions[0];
+}
+
+function applyBankSuggestion(suggestion) {
+  const d = suggestion.data || {};
+  const bankNameInput = document.getElementById('org-bank-name');
+  const corrAccountInput = document.getElementById('org-corr-account');
+
+  const bankName = (d.name && (d.name.payment || d.name.full)) || suggestion.value;
+  if (bankName) bankNameInput.value = bankName;
+  if (d.correspondent_account) corrAccountInput.value = d.correspondent_account;
 }
 
 // Общий DaData-автоподбор адреса. Переиспользуется для #org-address (юр.адрес)
@@ -1059,6 +1190,27 @@ function validateForm() {
 
     const fundingSource = document.getElementById('org-funding-source');
     if (!fundingSource.value.trim()) markInvalid(fundingSource, errors, 'Укажите источник финансирования услуг.');
+
+    const bankName = document.getElementById('org-bank-name');
+    if (!bankName.value.trim()) markInvalid(bankName, errors, 'Укажите наименование банка.');
+
+    const bik = document.getElementById('org-bik');
+    const bikDigits = onlyDigits(bik.value);
+    if (!bikDigits) {
+      markInvalid(bik, errors, 'Укажите БИК банка.');
+    } else if (bikDigits.length !== 9) {
+      markInvalid(bik, errors, 'БИК должен содержать 9 цифр.');
+    }
+
+    const settlementAccount = document.getElementById('org-settlement-account');
+    if (!onlyDigits(settlementAccount.value)) {
+      markInvalid(settlementAccount, errors, 'Укажите расчётный / казначейский счёт.');
+    }
+
+    const corrAccount = document.getElementById('org-corr-account');
+    if (!onlyDigits(corrAccount.value)) {
+      markInvalid(corrAccount, errors, 'Укажите корреспондентский счёт.');
+    }
   } else {
     const workplace = document.getElementById('fl-workplace');
     const unemployed = document.getElementById('fl-unemployed');
@@ -1115,6 +1267,18 @@ function validateForm() {
     } else if (!isValidPhoneDigits(orgPhone.value)) {
       markInvalid(orgPhone, errors, 'Телефон указан в неверном формате.');
     }
+
+    const orgEmail = document.getElementById('org-email');
+    if (!orgEmail.value.trim()) {
+      markInvalid(orgEmail, errors, 'Укажите email контактного лица.');
+    } else if (!isValidEmail(orgEmail.value)) {
+      markInvalid(orgEmail, errors, 'Email контактного лица указан в неверном формате.');
+    } else {
+      const orgEmailFix = suggestEmailFix(orgEmail.value);
+      if (orgEmailFix) {
+        markInvalid(orgEmail, errors, `Похоже, опечатка в email контактного лица. Возможно, вы имели в виду ${orgEmailFix}?`);
+      }
+    }
   }
 
   // ФИО: для ФЛ — "ФИО заявителя" (#fl-headfio), для ЮЛ — "ФИО руководителя"
@@ -1147,6 +1311,11 @@ function validateForm() {
       markInvalid(emailInput, errors, `Слушатель ${n}: укажите email.`);
     } else if (!isValidEmail(emailInput.value)) {
       markInvalid(emailInput, errors, `Слушатель ${n}: email указан в неверном формате.`);
+    } else {
+      const emailFix = suggestEmailFix(emailInput.value);
+      if (emailFix) {
+        markInvalid(emailInput, errors, `Слушатель ${n}: похоже, опечатка в email. Возможно, вы имели в виду ${emailFix}?`);
+      }
     }
 
     const phoneInput = row.querySelector('.listener-phone');
@@ -1264,6 +1433,13 @@ function buildPayload() {
     ikzNumber: ikzRequired ? document.getElementById('org-ikz-number').value.trim() : null,
     fundingSource: isIndividual ? null : document.getElementById('org-funding-source').value.trim() || null,
 
+    bankName: isIndividual ? null : document.getElementById('org-bank-name').value.trim() || null,
+    bik: isIndividual ? null : onlyDigits(document.getElementById('org-bik').value) || null,
+    settlementAccount: isIndividual ? null : onlyDigits(document.getElementById('org-settlement-account').value) || null,
+    correspondentAccount: isIndividual ? null : onlyDigits(document.getElementById('org-corr-account').value) || null,
+    personalAccount: isIndividual ? null : onlyDigits(document.getElementById('org-personal-account').value) || null,
+    bankExtra: isIndividual ? null : document.getElementById('org-bank-extra').value.trim() || null,
+
     workplace: isIndividual ? document.getElementById('fl-workplace').value.trim() || null : null,
     workplaceInn: isIndividual ? onlyDigits(document.getElementById('fl-inn').value) || null : null,
     selfEmployedOrUnemployed: isIndividual ? document.getElementById('fl-unemployed').checked : null,
@@ -1283,6 +1459,7 @@ function buildPayload() {
       ? document.getElementById('fl-headfio').value.trim()
       : document.getElementById('org-headfio').value.trim(),
     phone: isIndividual ? null : normalizePhone(document.getElementById('org-phone').value),
+    email: isIndividual ? null : document.getElementById('org-email').value.trim(),
     originalsDelivery,
     comment: comment || null,
   };
