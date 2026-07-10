@@ -279,6 +279,33 @@ body {
   margin: 2px 0 0;
   padding: 8px 12px;
   font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.deal-notice__hint {
+  flex-basis: 100%;
+  font-weight: 600;
+}
+
+/* Поле со ссылкой тянется, min-width:0 разрешает ему сжиматься внутри flex,
+   иначе длинный URL распирал бы плашку и ломал перенос кнопки. */
+.deal-notice__link {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+}
+
+.deal-notice__copy {
+  flex: 0 0 auto;
 }
 
 .deal-notice.deal-notice--missing {

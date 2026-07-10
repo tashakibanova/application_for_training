@@ -35,7 +35,7 @@
     </ol>
 
     <div class="deal-box">
-      <label class="deal-box__label" for="deal-id-input">ID сделки Битрикс24</label>
+      <label class="deal-box__label" for="deal-id-input">Номер вашего договора</label>
       <input type="text" id="deal-id-input" class="deal-box__input" name="dealId"
              inputmode="numeric" autocomplete="off" maxlength="9"
              placeholder="если есть — впишите вручную">
@@ -63,7 +63,10 @@
         <img class="card__icon" src="assets/target.png" alt="" aria-hidden="true">
       </h2>
 
-      <fieldset class="field">
+      <!-- Ветка ФЛ временно скрыта (будет переработана отдельно). legal_entity
+           остаётся checked и единственным путём через JS-логику, поэтому весь
+           fieldset прячем целиком — переключатель с одним вариантом не нужен. -->
+      <fieldset class="field" hidden>
         <legend>Кто подаёт заявку <span class="req">*</span></legend>
         <div class="radio-row">
           <label class="radio-label">
@@ -184,8 +187,9 @@
           <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
           <select id="org-originals-delivery" name="originalsDelivery" required>
             <option value="" disabled selected>Выберите способ</option>
-            <option value="sbis">СБИС</option>
-            <option value="kontur">Контур</option>
+            <option value="sbis">Через ЭДО - СБИС</option>
+            <option value="kontur">Через ЭДО - Контур</option>
+            <option value="russian_post">Почтой России</option>
           </select>
         </div>
       </div>

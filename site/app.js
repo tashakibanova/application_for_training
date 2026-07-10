@@ -161,17 +161,69 @@ function wireDealIdInput() {
 function renderDealNotice() {
   const el = document.getElementById('deal-notice');
   if (state.dealId) {
-    // Позитивное подтверждение показываем, оно не запутывает пользователя.
-    el.textContent = 'Заявка привязана к сделке № ' + state.dealId;
+    // Показываем менеджеру готовую ссылку с номером договора — чтобы отправить
+    // её клиенту, а не голый URL сайта (иначе заявка придёт непривязанной).
+    const link = location.origin + location.pathname + '?deal=' + encodeURIComponent(state.dealId);
+    el.innerHTML = '';
+
+    const hint = document.createElement('span');
+    hint.className = 'deal-notice__hint';
+    hint.textContent = 'Ссылка для клиента:';
+
+    const field = document.createElement('input');
+    field.type = 'text';
+    field.className = 'deal-notice__link';
+    field.readOnly = true;
+    field.value = link;
+    field.addEventListener('focus', () => field.select());
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'btn btn--ghost btn--small deal-notice__copy';
+    copyBtn.textContent = 'Скопировать';
+    copyBtn.addEventListener('click', () => copyDealLink(link, copyBtn));
+
+    el.append(hint, field, copyBtn);
     el.classList.remove('deal-notice--missing');
     el.hidden = false;
   } else {
-    // Нет сделки — подтверждение прячем (плашка-предупреждение только пугает
-    // рядового пользователя; на бэкенде заявка без сделки всё равно уходит в
-    // лист «Незакреплённые»). Соседнее поле ввода ID при этом остаётся видимым.
-    el.textContent = '';
+    // Нет сделки — плашку прячем (предупреждение только пугает рядового
+    // пользователя; на бэкенде заявка без сделки всё равно уходит в лист
+    // «Незакреплённые»). Соседнее поле ввода ID при этом остаётся видимым.
+    el.innerHTML = '';
     el.hidden = true;
   }
+}
+
+// Копирует ссылку в буфер обмена. Основной путь — navigator.clipboard; на
+// старых браузерах / http-контексте, где его нет, — запасной execCommand.
+function copyDealLink(link, btn) {
+  const original = btn.textContent;
+  const confirm = () => {
+    btn.textContent = 'Скопировано';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(confirm).catch(() => fallbackCopy(link, confirm));
+  } else {
+    fallbackCopy(link, confirm);
+  }
+}
+
+function fallbackCopy(text, onDone) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    onDone();
+  } catch (e) {
+    /* буфер недоступен — пользователь может выделить ссылку и скопировать вручную */
+  }
+  document.body.removeChild(ta);
 }
 
 /* =====================================================================

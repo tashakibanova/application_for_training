@@ -141,7 +141,7 @@
 - `organization.workplaceInn`: строка (10 или 12 цифр) или `null` — ИНН места работы физлица; заполняется только при `applicantType === "individual"` (для ЮЛ всегда `null`), автоподставляет название организации в `workplace` через DaData. Обязателен вместе с `workplace`, если `selfEmployedOrUnemployed !== true`.
 - `organization.selfEmployedOrUnemployed`: boolean | `null` — только при `applicantType === "individual"`; при отправке обязательно `workplace` ИЛИ `selfEmployedOrUnemployed === true`.
 - `organization.phone`: строка или `null` — телефон контактного лица; обязателен при `applicantType === "legal_entity"`, для `"individual"` всегда `null`.
-- `organization.originalsDelivery` ∈ `"sbis" | "kontur"` — способ получения оригиналов договора, больше не связан с наличием почтового адреса (см. ниже).
+- `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"` — способ получения оригиналов договора (`"sbis"` — через ЭДО СБИС, `"kontur"` — через ЭДО Контур, `"russian_post"` — Почтой России; ключ `russian_post`, а не `postal`, чтобы совпадать с уже существующим `DELIVERY_LABELS` в yandex-function/index.js), больше не связан с наличием почтового адреса (см. ниже).
 - `organization.postalAddress`: объект, **всегда присутствует и обязателен** (независимо от `originalsDelivery` — почтовый адрес собирается всегда, не только при доставке почтой).
   - `postalAddress.address` — сам адрес (улица/дом), обязателен вместе с `index`/`headFio`.
   - `postalAddress.orgName` — наименование учреждения-получателя; заполняется только при `applicantType === "legal_entity"`, иначе `null`.
