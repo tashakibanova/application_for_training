@@ -56,14 +56,6 @@
   --shadow-md: 0 10px 30px -12px rgba(120, 20, 60, 0.22);
   --shadow-lg: 0 24px 60px -22px rgba(120, 20, 60, 0.32);
 
-  /* Раскладка табличных колонок слушателей (десктоп).
-     Колонка «Курс» заметно шире прочих — названия курсов длинные (100+ симв.).
-     ФИО/Email/Телефон расширены под реальные данные: ФИО «Фамилия Имя Отчество»
-     (25-35 симв.), длинные email, телефон «+7 999 123-45-67» (17 симв.). */
-  --lr-cols: minmax(210px, 2.6fr) 56px 140px minmax(210px, 2.1fr) minmax(215px, 2.1fr) 152px;
-  /* Минимальная ширина табличной раскладки = сумма минимумов колонок + промежутки.
-     Ниже неё таблица горизонтально прокручивается (.listeners-table overflow-x). */
-  --lr-min-width: 1030px;
 }
 
 /* =====================================================================
@@ -441,7 +433,7 @@ body {
    тонкий акцент на левом крае, не как фон. */
 .deal-box {
   position: relative;
-  margin: 16px 0 0;
+  margin: 16px 0 22px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -788,7 +780,9 @@ textarea.field-invalid:focus {
   gap: 6px 18px;
 }
 
-.radio-label {
+/* label.radio-label (не просто .radio-label) — та же причина, что у label.chip
+   чуть ниже: специфичность (0,1,1) нужна, чтобы перебить .field label. */
+label.radio-label {
   font-weight: 400;
   display: inline-flex;
   align-items: center;
@@ -998,8 +992,15 @@ label.chip {
 .listener-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0 16px;
+  gap: 14px 16px;
+  grid-template-areas: "course" "hours" "date" "fio" "email" "phone";
 }
+.lr--course { grid-area: course; }
+.lr--hours { grid-area: hours; }
+.lr--date { grid-area: date; }
+.lr--fio { grid-area: fio; }
+.lr--email { grid-area: email; }
+.lr--phone { grid-area: phone; }
 
 .lr--extra { grid-column: 1 / -1; }
 
@@ -1074,13 +1075,24 @@ fieldset.field-invalid {
 .submit-error p { margin: 0; color: var(--warn-text); }
 
 .submit-row {
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(245, 242, 244, 0) 0%, var(--bg) 40%);
-  padding: 14px 0 10px;
-  margin-top: 8px;
-  z-index: 5;
+  margin-top: 22px;
+  padding: 20px 22px;
+  border-radius: var(--radius);
+  background: var(--brand-gradient-soft);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
+.submit-row__note {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin: 0;
+  max-width: 44ch;
+}
+.submit-row .btn--primary { min-width: 210px; }
 
 .success-screen {
   position: relative;
@@ -1331,104 +1343,19 @@ fieldset.field-invalid {
   .btn--primary,
   .btn--secondary { width: auto; }
 
-  .submit-row { text-align: right; }
-
-  /* Слушатели: 2 колонки внутри карточки строки */
-  .listener-grid { grid-template-columns: 1fr 1fr; column-gap: 16px; }
-  .lr--course, .lr--fio, .lr--email { grid-column: auto; }
-}
-
-/* Десктоп: настоящая табличная раскладка слушателей */
-@media (min-width: 1040px) {
-  .listeners-table {
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  /* Отдельная шапка-строка НЕ используется в табличном режиме: она не может
-     оставаться видимой при прокрутке (родитель .listeners-table имеет
-     overflow-x: auto → overflow-y вычисляется в auto и образует scroll-контейнер,
-     который «ловит» position: sticky — шапка залипает к таблице, а не к вьюпорту,
-     и уезжает вместе с ней). Проверено в браузере. Поэтому подписи колонок
-     показываем компактно в каждой строке слушателя (см. правило для label ниже) —
-     тогда они видны у любого слушателя, сколько бы их ни было. */
-  .listeners-head { display: none; }
-
-  .listener-row.card--nested {
-    min-width: var(--lr-min-width);
-    padding: 12px 14px 14px;
-    margin-bottom: 0;
-    border-radius: 0;
-    border: none;
-    border-bottom: 1px solid var(--border);
-    background: transparent;
-  }
-  .listener-row.card--nested:nth-child(even) { background: var(--surface-2); }
-
-  .listener-row__header {
-    margin-bottom: 8px;
-  }
-  .listener-row__title { font-size: 0.82rem; }
-
+  /* Слушатели: курс/часы/дата в одну строку, ФИО отдельно на всю ширину,
+     email/телефон в одну строку — как в макете. Раньше здесь была плотная
+     6-колоночная табличная раскладка (--lr-cols, --lr-min-width:1030px), но
+     после переноса на карточку эта ширина уже не помещается рядом со
+     sticky-сайдбаром и вызывала лишний горизонтальный скролл. */
   .listener-grid {
-    grid-template-columns: var(--lr-cols);
-    column-gap: 14px;
-    row-gap: 4px;
-    align-items: start;
+    grid-template-columns: 1.6fr 0.7fr 1.1fr;
+    grid-template-areas:
+      "course hours date"
+      "fio    fio   fio"
+      "email  email phone";
   }
-
-  /* Компактные подписи колонок прямо в каждой ячейке: остаются видны у любого
-     слушателя при прокрутке (единая шапка для этого не годится — см. выше).
-     Перенос, а не многоточие: у длинных подписей ("Дата начала обучения",
-     "ФИО слушателя (как в паспорте)") обрезка съедала смысл — 2 строки в
-     компактном шрифте безопаснее теряют меньше, чем "ФИО СЛУШАТЕЛЯ (КАК В...". */
-  .listener-grid > .lr-cell:not(.lr--extra) > label {
-    display: block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 4px;
-    white-space: normal;
-    line-height: 1.25;
-  }
-
-  /* Чекбокс "Это я" (см. .listener-self-fio в шаблоне слушателя) — тоже
-     прямой потомок .lr-cell и попадает под правило выше, но это обычный
-     текст чекбокса, а не короткая подпись колонки — не должен обрезаться
-     многоточием. Специфичность выше за счёт доп. класса — переопределяет. */
-  .listener-grid > .lr-cell:not(.lr--extra) > label.listener-self-fio {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    text-transform: none;
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: normal;
-    color: var(--text);
-    margin-top: 6px;
-    margin-bottom: 0;
-  }
-
-  .lr-cell { margin-bottom: 4px; }
-
-  /* доп.поля — отдельной строкой под слушателем, с подписями */
-  .listener-grid > .lr--extra:not([hidden]) {
-    margin-top: 10px;
-    padding-top: 12px;
-  }
-  .lr--extra { max-width: 520px; }
-
-  /* компактная дата/часы в таблице */
-  .lr--hours input, .lr--date input { padding-left: 10px; padding-right: 8px; }
 }
-
-/* Раньше карточка «Слушатели» (.card--wide) раздвигалась отрицательными полями
-   за пределы .page, когда форма была во всю ширину. Теперь форма живёт в левой
-   колонке .layout рядом со sticky-сайдбаром, поэтому вылезать за колонку нельзя —
-   широкая таблица слушателей просто прокручивается по горизонтали внутри своей
-   карточки (.listeners-table overflow-x: auto). */
 
 /* Уважать пользовательские настройки уменьшенного движения */
 @media (prefers-reduced-motion: reduce) {
