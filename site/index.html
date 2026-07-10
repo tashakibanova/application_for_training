@@ -341,7 +341,7 @@
             <div class="listeners-head" aria-hidden="true">
               <span class="lh lh--course">Курс <span class="req">*</span></span>
               <span class="lh lh--hours">Часы</span>
-              <span class="lh lh--date">Дата начала обучения <span class="req">*</span></span>
+              <span class="lh lh--date">Даты обучения <span class="req">*</span></span>
               <span class="lh lh--fio">ФИО слушателя <span class="req">*</span></span>
               <span class="lh lh--email">Email <span class="req">*</span></span>
               <span class="lh lh--phone">Телефон <span class="req">*</span></span>
@@ -433,8 +433,11 @@
       </div>
 
       <div class="field lr-cell lr--date" data-req>
-        <label>Дата начала обучения <span class="req">*</span></label>
-        <input type="date" class="listener-date" required>
+        <label>Даты обучения <span class="req">*</span></label>
+        <select class="listener-date-select" required>
+          <option value="" disabled selected>Сначала выберите курс</option>
+        </select>
+        <input type="date" class="listener-date-manual" hidden required>
       </div>
 
       <div class="field lr-cell lr--fio" data-req>

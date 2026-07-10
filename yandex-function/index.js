@@ -100,7 +100,7 @@ function buildListenersXlsxBase64(listeners, organization, dealId) {
   const rows = listeners.map((l) => [
     stripHoursFromCourseName(l.courseName),
     typeof l.hours === 'number' ? l.hours : '',
-    l.date || '',
+    l.date ? l.date + (l.dateEnd ? ' – ' + l.dateEnd : '') : '',
     l.fio || '',
     address,
     l.email || '',

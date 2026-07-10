@@ -32,6 +32,10 @@ const state = {
   // менеджера) — тогда блок "Ссылка для клиента" ему самому показывать незачем.
   dealIdFromUrl: false,
   courses: [],
+  // Расписание запусков/выпусков по группам часов (site/course-dates.json).
+  // Может остаться null, если файл не загрузился — тогда доступен только
+  // ручной ввод даты ("Другие сроки"), см. updateListenerDateOptions().
+  courseDateBuckets: [],
   startedAt: null,
   submittedAt: null,
   trackSent: false,
@@ -331,6 +335,20 @@ async function loadCourses() {
       'Не удалось загрузить список курсов (courses.json). Обновите страницу или сообщите менеджеру.'
     );
   }
+
+  // Необязательный файл: если не загрузился — просто остаётся пустой список
+  // диапазонов, и выбор даты у слушателей сводится к "Другие сроки" (см.
+  // updateListenerDateOptions()), форму это не блокирует.
+  try {
+    const res = await fetch('./course-dates.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    state.courseDateBuckets = Array.isArray(data.buckets) ? data.buckets : [];
+  } catch (err) {
+    state.courseDateBuckets = [];
+    console.error('Не удалось загрузить course-dates.json:', err);
+  }
+
   // Всегда добавляем первую строку слушателя, даже если каталог пуст —
   // пользователь всё равно должен увидеть форму.
   addListenerRow();
@@ -819,6 +837,8 @@ function addListenerRow() {
     openCourseModal(rowEl);
   });
 
+  wireListenerDateSelect(rowEl);
+
   // Чекбокс "Это я" — только для ФЛ. Разовое копирование ФИО заявителя в ФИО
   // слушателя (не постоянная привязка). Email/телефон копировать не из чего —
   // на уровне заявителя их нет, поэтому подставляется только ФИО.
@@ -874,8 +894,88 @@ function onListenerCourseChange(rowEl) {
     reasonRadios.forEach((r) => (r.checked = false));
   }
 
+  updateListenerDateOptions(rowEl, course);
+
   // Показ/скрытие доп.полей меняет число видимых обязательных полей — пересчёт.
   recompute();
+}
+
+// "2026-01-13" -> "13.01.2026" — форматирование только строковой нарезкой (без
+// Date/Intl), чтобы не словить сдвиг на часовой пояс браузера у date-only ISO.
+function formatRuDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  return y && m && d ? `${d}.${m}.${y}` : iso || '';
+}
+
+// Сегодняшняя дата в ISO (без времени) — для отсечения прошедших дат запуска.
+function todayIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Группа длительности по часам курса (см. site/course-dates.json). Диапазоны
+// hoursMin/hoursMax не пересекаются, поэтому подходит первая совпавшая.
+function findDateBucket(hours) {
+  if (typeof hours !== 'number') return null;
+  return state.courseDateBuckets.find(
+    (b) => hours <= b.hoursMax && (b.hoursMin == null || hours >= b.hoursMin)
+  ) || null;
+}
+
+// Перестраивает выпадающий список дат под выбранный курс: варианты из
+// подходящей группы часов (только с датой начала не раньше сегодня) + всегда
+// "Другие сроки" последним пунктом (ручной ввод, см. wireListenerDateSelect()).
+function updateListenerDateOptions(rowEl, course) {
+  const select = rowEl.querySelector('.listener-date-select');
+  const manualInput = rowEl.querySelector('.listener-date-manual');
+  const previousValue = select.value;
+
+  select.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.disabled = true;
+  placeholder.textContent = course ? 'Выберите даты' : 'Сначала выберите курс';
+  select.appendChild(placeholder);
+
+  const bucket = course ? findDateBucket(course.hours) : null;
+  const today = todayIso();
+  const ranges = bucket ? bucket.ranges.filter((r) => r.start >= today) : [];
+
+  ranges.forEach((r) => {
+    const opt = document.createElement('option');
+    opt.value = r.start + '_' + r.end;
+    opt.dataset.start = r.start;
+    opt.dataset.end = r.end;
+    opt.textContent = formatRuDate(r.start) + ' – ' + formatRuDate(r.end);
+    select.appendChild(opt);
+  });
+
+  const otherOpt = document.createElement('option');
+  otherOpt.value = 'other';
+  otherOpt.textContent = 'Другие сроки';
+  select.appendChild(otherOpt);
+
+  // Смена курса всегда сбрасывает выбранные даты — старый диапазон мог
+  // относиться к другой группе часов и не подходить новому курсу.
+  if (previousValue && ranges.some((r) => r.start + '_' + r.end === previousValue)) {
+    select.value = previousValue;
+  } else {
+    select.value = '';
+    manualInput.hidden = true;
+    manualInput.value = '';
+  }
+}
+
+// Переключает видимость ручного поля даты при выборе "Другие сроки".
+function wireListenerDateSelect(rowEl) {
+  const select = rowEl.querySelector('.listener-date-select');
+  const manualInput = rowEl.querySelector('.listener-date-manual');
+  select.addEventListener('change', () => {
+    manualInput.hidden = select.value !== 'other';
+    if (select.value !== 'other') manualInput.value = '';
+    recompute();
+  });
 }
 
 /* ---------------------------------------------------------------------
@@ -1206,6 +1306,14 @@ function fieldFilled(field) {
   if (field.querySelector('.radios')) {
     return !!field.querySelector('.radios input:checked');
   }
+  const dateSelect = field.querySelector('.listener-date-select');
+  if (dateSelect) {
+    if (!dateSelect.value) return false;
+    if (dateSelect.value === 'other') {
+      return field.querySelector('.listener-date-manual').value.trim() !== '';
+    }
+    return true;
+  }
   const controls = field.querySelectorAll('input, select, textarea');
   for (const c of controls) {
     if (c.type === 'hidden') {
@@ -1491,8 +1599,13 @@ function validateForm() {
     const course = state.courses.find((c) => c.id === courseSelect.value);
     if (!courseSelect.value) markInvalid(courseBtn, errors, `Слушатель ${n}: выберите курс.`);
 
-    const dateInput = row.querySelector('.listener-date');
-    if (!dateInput.value) markInvalid(dateInput, errors, `Слушатель ${n}: укажите дату проведения.`);
+    const dateSelect = row.querySelector('.listener-date-select');
+    const dateManual = row.querySelector('.listener-date-manual');
+    if (!dateSelect.value) {
+      markInvalid(dateSelect, errors, `Слушатель ${n}: укажите даты обучения.`);
+    } else if (dateSelect.value === 'other' && !dateManual.value) {
+      markInvalid(dateManual, errors, `Слушатель ${n}: укажите дату вручную.`);
+    }
 
     const fioInput = row.querySelector('.listener-fio');
     if (!fioInput.value.trim()) markInvalid(fioInput, errors, `Слушатель ${n}: укажите ФИО.`);
@@ -1661,11 +1774,22 @@ function buildPayload() {
     const hasExtra = !!(course && course.category != null);
     const reasonChecked = row.querySelector('.listener-reason:checked');
 
+    // "Другие сроки" — только дата начала (ручной ввод), dateEnd null.
+    // Выбор из расписания — обе даты берутся из data-атрибутов опции.
+    const dateSelect = row.querySelector('.listener-date-select');
+    const isOtherDate = dateSelect.value === 'other';
+    const selectedOption = dateSelect.selectedOptions[0] || null;
+    const date = isOtherDate
+      ? row.querySelector('.listener-date-manual').value || null
+      : (selectedOption && selectedOption.dataset.start) || null;
+    const dateEnd = isOtherDate ? null : (selectedOption && selectedOption.dataset.end) || null;
+
     return {
       courseId: courseSelect.value || null,
       courseName: course ? course.name : null,
       hours: course ? course.hours : null,
-      date: row.querySelector('.listener-date').value || null,
+      date,
+      dateEnd,
       fio: row.querySelector('.listener-fio').value.trim(),
       email: row.querySelector('.listener-email').value.trim(),
       phone: normalizePhone(row.querySelector('.listener-phone').value),
