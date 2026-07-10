@@ -1744,6 +1744,10 @@ function showSuccessScreen() {
   document.getElementById('application-form').hidden = true;
   document.getElementById('form-errors').hidden = true;
   document.getElementById('submit-error').hidden = true;
+  // Прогресс (сайдбар-чеклист + мини-бар в шапке) после отправки не нужен —
+  // заполнять больше нечего, показывать "100%" незачем.
+  document.getElementById('progress-side').hidden = true;
+  document.getElementById('appbar-progress').hidden = true;
   document.getElementById('success-screen').hidden = false;
   document.getElementById('success-screen').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
