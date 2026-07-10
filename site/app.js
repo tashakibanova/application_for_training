@@ -676,7 +676,12 @@ function applyBankSuggestion(suggestion) {
 
   const bankName = (d.name && (d.name.payment || d.name.full)) || suggestion.value;
   if (bankName) bankNameInput.value = bankName;
-  if (d.correspondent_account) corrAccountInput.value = d.correspondent_account;
+
+  // У казначейских БИК (УФК и т.п. — именно такие в примерах реквизитов
+  // заказчика) DaData отдаёт корсчёт не в correspondent_account (он там null),
+  // а в treasury_accounts. У обычных банков — наоборот, treasury_accounts нет.
+  const correspondentAccount = d.correspondent_account || (d.treasury_accounts && d.treasury_accounts[0]);
+  if (correspondentAccount) corrAccountInput.value = correspondentAccount;
 }
 
 // Общий DaData-автоподбор адреса. Переиспользуется для #org-address (юр.адрес)
