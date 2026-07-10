@@ -43,11 +43,18 @@
   --warn-border: #f0c58a;
   --warn-text: #8a5200;
 
+  /* Доп. поверхности/токены для карточек-концепта (прогресс, тёмная тема) */
+  --surface-3: #f7f1f5;
+  --ring-track: #ece4ec;
+
   --radius: 16px;
   --radius-sm: 10px;
+  --radius-xs: 7px;
   --gap: 18px;
+  --maxw: 1160px;
   --shadow-sm: 0 1px 2px rgba(33, 20, 30, 0.06);
   --shadow-md: 0 10px 30px -12px rgba(120, 20, 60, 0.22);
+  --shadow-lg: 0 24px 60px -22px rgba(120, 20, 60, 0.32);
 
   /* Раскладка табличных колонок слушателей (десктоп).
      Колонка «Курс» заметно шире прочих — названия курсов длинные (100+ симв.).
@@ -57,6 +64,64 @@
   /* Минимальная ширина табличной раскладки = сумма минимумов колонок + промежутки.
      Ниже неё таблица горизонтально прокручивается (.listeners-table overflow-x). */
   --lr-min-width: 1030px;
+}
+
+/* =====================================================================
+ * Тёмная тема. По умолчанию сайт светлый: index.html ставит
+ * data-theme="light" до отрисовки. Тёмная включается только явным
+ * нажатием переключателя в шапке (ставит data-theme="dark"). Блок
+ * prefers-color-scheme оставлен как разумный дефолт, но data-theme
+ * всегда побеждает по специфичности (:root[...]).
+ * ===================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-gradient: linear-gradient(120deg, #e0459a 0%, #f0435f 46%, #f76a45 78%, #f9a24f 100%);
+    --brand-gradient-soft: linear-gradient(120deg, #33202e 0%, #331f27 55%, #33261f 100%);
+    --accent: #f06a9b; --accent-strong: #f58cb4; --focus: #f0435f;
+    --bg: #151017; --surface: #211a27; --surface-2: #271f2e; --surface-3: #2c2233;
+    --border: #3a2f42; --border-strong: #4a3d54;
+    --text: #f4edf2; --muted: #b6a9bd; --muted-2: #8f8298;
+    --success: #4fce9a; --success-bg: #183a2d; --success-border: #2f6a52;
+    --danger: #f0768a; --danger-bg: #3a1f28; --danger-border: #6a3644;
+    --info-bg: #2c2233; --info-text: #f58cb4;
+    --warn-bg: #362a1c; --warn-border: #6a5330; --warn-text: #e8c07a;
+    --ring-track: #352a3e;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 16px 36px -16px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 26px 64px -22px rgba(0, 0, 0, 0.7);
+  }
+}
+:root[data-theme="light"] {
+  --brand-gradient: linear-gradient(120deg, #c21c74 0%, #da1e4a 46%, #ee4a31 78%, #f5822a 100%);
+  --brand-gradient-soft: linear-gradient(120deg, #fbeaf2 0%, #fdeceb 55%, #fdf0e6 100%);
+  --accent: #c81a54; --accent-strong: #a81447; --focus: #d81e4a;
+  --bg: #f5f2f4; --surface: #ffffff; --surface-2: #fbf7f9; --surface-3: #f7f1f5;
+  --border: #e7e0e7; --border-strong: #d6cdd7;
+  --text: #211b23; --muted: #6c6472; --muted-2: #938a97;
+  --success: #12885a; --success-bg: #e7f6ee; --success-border: #a9dcc2;
+  --danger: #c62839; --danger-bg: #fceef0; --danger-border: #eab8c0;
+  --info-bg: #fbecf3; --info-text: #8a1450;
+  --warn-bg: #fff4e5; --warn-border: #f0c58a; --warn-text: #8a5200;
+  --ring-track: #ece4ec;
+  --shadow-sm: 0 1px 2px rgba(33, 20, 30, 0.06);
+  --shadow-md: 0 10px 30px -12px rgba(120, 20, 60, 0.22);
+  --shadow-lg: 0 24px 60px -22px rgba(120, 20, 60, 0.32);
+}
+:root[data-theme="dark"] {
+  --brand-gradient: linear-gradient(120deg, #e0459a 0%, #f0435f 46%, #f76a45 78%, #f9a24f 100%);
+  --brand-gradient-soft: linear-gradient(120deg, #33202e 0%, #331f27 55%, #33261f 100%);
+  --accent: #f06a9b; --accent-strong: #f58cb4; --focus: #f0435f;
+  --bg: #151017; --surface: #211a27; --surface-2: #271f2e; --surface-3: #2c2233;
+  --border: #3a2f42; --border-strong: #4a3d54;
+  --text: #f4edf2; --muted: #b6a9bd; --muted-2: #8f8298;
+  --success: #4fce9a; --success-bg: #183a2d; --success-border: #2f6a52;
+  --danger: #f0768a; --danger-bg: #3a1f28; --danger-border: #6a3644;
+  --info-bg: #2c2233; --info-text: #f58cb4;
+  --warn-bg: #362a1c; --warn-border: #6a5330; --warn-text: #e8c07a;
+  --ring-track: #352a3e;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 16px 36px -16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 26px 64px -22px rgba(0, 0, 0, 0.7);
 }
 
 * { box-sizing: border-box; }
@@ -81,28 +146,42 @@ body {
 }
 
 .page {
-  max-width: 960px;
+  max-width: var(--maxw);
   margin: 0 auto;
-  padding: 16px;
-  padding-bottom: 56px;
+  padding: 22px 22px 80px;
 }
 
 /* =====================================================================
- * Шапка: логотип + hero-плашка + шаги
+ * Sticky-шапка: логотип + живой мини-прогресс + переключатель темы
  * ===================================================================== */
 
-.page-header { margin-bottom: 20px; }
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.appbar__inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 11px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+  gap: 11px;
+  flex: none;
 }
 
 .brand__logo {
-  height: 38px;
+  height: 32px;
   width: auto;
   display: block;
 }
@@ -114,6 +193,154 @@ body {
   border-left: 1px solid var(--border-strong);
   line-height: 1.2;
 }
+
+.appbar__progress {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.miniprog { flex: 1 1 auto; min-width: 80px; }
+
+.miniprog__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.78rem;
+  margin-bottom: 5px;
+}
+
+.miniprog__label { font-weight: 700; color: var(--text); }
+.miniprog__label b { color: var(--accent); }
+.miniprog__left { color: var(--muted); font-weight: 600; white-space: nowrap; }
+
+.track {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--ring-track);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(33, 20, 30, 0.08);
+}
+
+.track__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: var(--brand-gradient);
+  transition: width 0.5s cubic-bezier(0.4, 0.1, 0.2, 1);
+}
+
+.themebtn {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.themebtn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* =====================================================================
+ * Двухколоночная раскладка: форма + sticky-сайдбар с чеклистом
+ * ===================================================================== */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+.stack { display: flex; flex-direction: column; gap: 18px; }
+
+.side { position: sticky; top: 82px; }
+@media (max-width: 900px) { .side { position: static; } }
+
+.nav {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.nav__head { padding: 16px 18px 12px; }
+.nav__title {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.nav__big { display: flex; align-items: flex-end; gap: 8px; }
+.nav__pct {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.nav__pctlabel { font-size: 0.82rem; color: var(--muted); font-weight: 600; padding-bottom: 3px; }
+.nav__left { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+.nav__left b { color: var(--text); }
+.nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--border);
+}
+.nav__item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 11px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+  transition: background 0.12s ease;
+}
+.nav__item:hover { background: var(--surface-2); }
+.nav__ico {
+  --p: 0;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--ring-track) 0);
+  -webkit-mask: radial-gradient(circle 7px at center, transparent 98%, #000 0);
+  mask: radial-gradient(circle 7px at center, transparent 98%, #000 0);
+}
+.nav__item.is-done .nav__ico {
+  background: var(--success);
+  -webkit-mask: none;
+  mask: none;
+  display: grid;
+  place-items: center;
+}
+.nav__item.is-done .nav__ico::after { content: "✓"; color: #fff; font-size: 0.72rem; font-weight: 900; }
+.nav__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.nav__name { display: block; font-size: 0.86rem; font-weight: 600; line-height: 1.25; }
+.nav__meta { display: block; font-size: 0.76rem; color: var(--muted); }
+.nav__item.is-done .nav__meta { color: var(--success); }
 
 .hero {
   position: relative;
@@ -247,12 +474,16 @@ body {
    input[type="text"]{width:100%} (у них иначе равная специфичность, и
    побеждал бы глобальный как объявленный позже). */
 .deal-box input.deal-box__input {
-  width: 170px;
+  /* Раньше была фиксированная width:170px — плейсхолдер "если есть — впишите
+     вручную" в неё не помещался и обрезался. Поле держит только 9 цифр, но
+     подсказку нужно показывать целиком, поэтому даём ему тянуться. */
+  flex: 1 1 220px;
+  max-width: 280px;
   min-height: 34px;
   padding: 6px 11px;
   font-size: 0.88rem;
   border-color: var(--border-strong);
-  background: #fff;
+  background: var(--surface);
 }
 
 /* Заблокировано после того, как ID зафиксирован (из ?deal= или введён вручную) —
@@ -300,7 +531,7 @@ body {
   font-size: 0.82rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -315,85 +546,102 @@ body {
 }
 
 /* =====================================================================
- * Карточки-секции
+ * Карточки-секции (заголовок + статус-пилюля + тело)
  * ===================================================================== */
 
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px 18px;
-  margin-bottom: var(--gap);
   box-shadow: var(--shadow-sm);
+  scroll-margin-top: 96px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
+.card.is-complete { border-color: var(--success-border); }
 
-.card__title {
+.card__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 0 4px;
-  font-size: 1.2rem;
-  font-weight: 700;
+  gap: 14px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
 }
 
 .card__num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+  flex: none;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   background: var(--brand-gradient);
   color: #fff;
-  font-size: 1rem;
   font-weight: 800;
-  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
   box-shadow: 0 4px 10px rgba(180, 25, 70, 0.3);
 }
 
-.card__title-text { flex: 1 1 auto; }
-
-.card__icon {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  flex: none;
-}
+.card__titles { flex: 1 1 auto; min-width: 0; }
+.card__title { margin: 0; font-size: 1.12rem; font-weight: 800; letter-spacing: -0.01em; }
+.card__sub { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); }
+.card__body { padding: 20px 22px 22px; }
 
 .card__lead {
-  margin: 4px 0 18px;
+  margin: -4px 0 16px;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
-/* Логические подсекции внутри карточки */
-.subsection { margin-top: 22px; }
-.subsection:first-of-type { margin-top: 16px; }
-
-.subsection__title {
-  margin: 0 0 14px;
-  font-size: 0.82rem;
+/* Статус-пилюля в шапке карточки: кольцо-прогресс → галочка «Готово» */
+.status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 8px;
+  border-radius: 99px;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
+  white-space: nowrap;
+  background: var(--surface-3);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.status .ring {
+  --p: 0;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--ring-track) 0);
+  -webkit-mask: radial-gradient(circle 6px at center, transparent 98%, #000 0);
+  mask: radial-gradient(circle 6px at center, transparent 98%, #000 0);
+}
+.status.is-done { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
+.status.is-done .ring { display: none; }
+.status__check { display: none; }
+.status.is-done .status__check { display: inline; font-size: 0.9rem; }
+.status.is-done .status__label { display: none; }
+
+/* Подзаголовок-разделитель внутри тела карточки (банк. реквизиты, почт. адрес) */
+.subhead {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 8px 0 2px;
 }
-
-.subsection__title::after {
+.subhead:first-child { margin-top: 0; }
+.subhead::after {
   content: "";
   flex: 1 1 auto;
   height: 1px;
   background: linear-gradient(90deg, var(--border-strong), transparent);
-}
-
-.subsection__subtitle {
-  margin: 18px 0 12px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text);
 }
 
 /* =====================================================================
@@ -401,29 +649,39 @@ body {
  * ===================================================================== */
 
 .field {
-  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
   position: relative;
 }
 
-.grid-2 {
+/* Сетка полей внутри карточки: одна колонка, на планшете и шире — две (.g2).
+   .col-2 растягивает поле на всю ширину; .subhead — тоже на всю (см. выше). */
+.grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0 18px;
+  gap: 14px 18px;
 }
+.col-2 { grid-column: 1 / -1; }
 
 .field label,
 .field legend {
-  display: block;
   font-weight: 600;
   font-size: 0.9rem;
-  margin-bottom: 6px;
   padding: 0;
   color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
 }
+/* «мягкая» подпись у ярлыка (необязательно / если есть / как в паспорте) */
+.field .lhint { font-weight: 400; font-size: 0.82rem; color: var(--muted-2); }
 
 fieldset.field {
   border: none;
-  margin: 0 0 14px;
+  margin: 0;
   padding: 0;
 }
 
@@ -442,10 +700,10 @@ textarea {
   font-size: 1rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 input::placeholder, textarea::placeholder { color: var(--muted-2); }
@@ -469,7 +727,7 @@ textarea:focus {
 }
 
 input[readonly] {
-  background: #f4eff2;
+  background: var(--surface-3);
   color: var(--muted);
   border-color: var(--border);
   cursor: default;
@@ -486,6 +744,32 @@ input.field-invalid:focus,
 select.field-invalid:focus,
 textarea.field-invalid:focus {
   box-shadow: 0 0 0 3px rgba(198, 40, 57, 0.18);
+}
+
+/* Заполненное обязательное поле: зелёная рамка + галочка в углу инпута.
+   Класс is-filled навешивает recompute() в app.js только на текстовые поля
+   (не на радио/кнопку выбора курса). */
+.field.is-filled input,
+.field.is-filled select,
+.field.is-filled textarea {
+  border-color: var(--success-border);
+  background: linear-gradient(0deg, var(--success-bg), var(--success-bg)) padding-box;
+}
+:root[data-theme="dark"] .field.is-filled input,
+:root[data-theme="dark"] .field.is-filled select,
+:root[data-theme="dark"] .field.is-filled textarea {
+  background: var(--surface);
+  border-color: var(--success-border);
+}
+.tick { display: none; }
+.field.is-filled .tick {
+  display: block;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  color: var(--success);
+  font-size: 0.95rem;
+  pointer-events: none;
 }
 
 .hint {
@@ -519,6 +803,40 @@ textarea.field-invalid:focus {
   accent-color: var(--brand-crimson);
 }
 
+/* Chip-радиокнопки (закон-основание, ИКЗ, причина прохождения). Сам input
+   визуально скрыт, выбранное состояние показывает подсветка «таблетки». */
+.radios { display: flex; flex-wrap: wrap; gap: 8px; }
+/* label.chip (не просто .chip) — специфичность (0,1,1) нужна, чтобы перебить
+   .field label (тоже (0,1,1), но объявлено раньше): chip-лейблы вложены внутри
+   .field (через fieldset.field > .radios > label.chip), и .field label — это
+   descendant-селектор, а не только прямые дети, поэтому иначе задавал бы
+   chip'ам display/padding от обычных подписей полей. */
+label.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--border-strong);
+  border-radius: 99px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  user-select: none;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.chip:hover { border-color: var(--brand-crimson); }
+.chip:has(input:checked) {
+  background: var(--brand-gradient);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(200, 25, 70, 0.6);
+}
+.chip:has(input:focus-visible) { box-shadow: 0 0 0 3px rgba(216, 30, 74, 0.25); }
+
 /* Подсказки адреса */
 .field--relative { position: relative; }
 
@@ -530,7 +848,7 @@ textarea.field-invalid:focus {
   z-index: 20;
   left: 0;
   right: 0;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -601,7 +919,7 @@ textarea.field-invalid:focus {
 }
 
 .btn--secondary {
-  background: #fff;
+  background: var(--surface);
   border: 1.5px dashed var(--brand-crimson);
   color: var(--accent-strong);
   width: 100%;
@@ -821,7 +1139,7 @@ fieldset.field-invalid {
   gap: 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -938,7 +1256,7 @@ fieldset.field-invalid {
 .course-tab,
 .course-hour-chip {
   border: 1px solid var(--border-strong);
-  background: #fff;
+  background: var(--surface);
   color: var(--muted);
   border-radius: 999px;
   padding: 6px 13px;
@@ -1008,11 +1326,7 @@ fieldset.field-invalid {
 
 /* Планшет и шире: парные поля в две колонки, увеличенные отступы */
 @media (min-width: 640px) {
-  .page { padding: 28px 24px 64px; }
-  .card { padding: 26px 24px; }
-
-  .grid-2 { grid-template-columns: 1fr 1fr; }
-  /* дочерние .field уже имеют нижний отступ — сетка сохраняет ритм */
+  .grid.g2 { grid-template-columns: 1fr 1fr; }
 
   .btn--primary,
   .btn--secondary { width: auto; }
@@ -1064,17 +1378,20 @@ fieldset.field-invalid {
   }
 
   /* Компактные подписи колонок прямо в каждой ячейке: остаются видны у любого
-     слушателя при прокрутке (единая шапка для этого не годится — см. выше). */
+     слушателя при прокрутке (единая шапка для этого не годится — см. выше).
+     Перенос, а не многоточие: у длинных подписей ("Дата начала обучения",
+     "ФИО слушателя (как в паспорте)") обрезка съедала смысл — 2 строки в
+     компактном шрифте безопаснее теряют меньше, чем "ФИО СЛУШАТЕЛЯ (КАК В...". */
   .listener-grid > .lr-cell:not(.lr--extra) > label {
+    display: block;
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--muted);
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.25;
   }
 
   /* Чекбокс "Это я" (см. .listener-self-fio в шаблоне слушателя) — тоже
@@ -1107,20 +1424,11 @@ fieldset.field-invalid {
   .lr--hours input, .lr--date input { padding-left: 10px; padding-right: 8px; }
 }
 
-/* На больших экранах даём таблице слушателей больше ширины (только этой карточке —
-   класс card--wide стоит лишь на блоке «Слушатели»), чтобы широкие колонки
-   ФИО/Email/Телефон помещались без горизонтальной прокрутки. Отрицательные поля
-   не превышают свободного места по бокам от .page (max-width 960) на каждом
-   брейкпоинте, поэтому по горизонтали скроллится только сама таблица, а не страница. */
-@media (min-width: 1120px) {
-  .card--wide { margin-left: -44px; margin-right: -44px; }
-}
-@media (min-width: 1240px) {
-  .card--wide { margin-left: -90px; margin-right: -90px; }
-}
-@media (min-width: 1400px) {
-  .card--wide { margin-left: -130px; margin-right: -130px; }
-}
+/* Раньше карточка «Слушатели» (.card--wide) раздвигалась отрицательными полями
+   за пределы .page, когда форма была во всю ширину. Теперь форма живёт в левой
+   колонке .layout рядом со sticky-сайдбаром, поэтому вылезать за колонку нельзя —
+   широкая таблица слушателей просто прокручивается по горизонтали внутри своей
+   карточки (.listeners-table overflow-x: auto). */
 
 /* Уважать пользовательские настройки уменьшенного движения */
 @media (prefers-reduced-motion: reduce) {

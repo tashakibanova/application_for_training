@@ -5,43 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Заявка на обучение</title>
 <link rel="stylesheet" href="styles.css">
+<!-- Тема по умолчанию — светлая. Ставим атрибут до отрисовки, чтобы не было
+     вспышки тёмной темы у пользователей с системной тёмной темой (её включает
+     только явное нажатие переключателя в шапке). -->
+<script>document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
 <body>
 
-<div class="page">
-  <header class="page-header">
+<div class="appbar">
+  <div class="appbar__inner">
     <div class="brand">
       <img class="brand__logo" src="assets/logo.png" alt="Каменный город">
     </div>
-
-    <div class="hero">
-      <img class="hero__icon" src="assets/rocket.png" alt="" aria-hidden="true">
-      <div class="hero__text">
-        <h1 class="hero__title">Заявка на обучение</h1>
-        <p class="hero__sub">Заполните данные заявителя и список слушателей — менеджер подготовит договор и свяжется с вами.</p>
+    <div class="appbar__progress">
+      <div class="miniprog">
+        <div class="miniprog__top">
+          <span class="miniprog__label">Заполнено <b id="bar-pct">0%</b></span>
+          <span class="miniprog__left" id="bar-left">осталось&nbsp;—</span>
+        </div>
+        <div class="track"><div class="track__fill" id="bar-fill"></div></div>
       </div>
     </div>
+    <button type="button" class="themebtn" id="theme-btn" title="Сменить тему" aria-label="Сменить тему">◐</button>
+  </div>
+</div>
 
-    <ol class="stepper" aria-hidden="true">
-      <li class="stepper__item">
-        <span class="stepper__num">1</span>
-        <span class="stepper__label">Данные заявителя</span>
-      </li>
-      <li class="stepper__sep"></li>
-      <li class="stepper__item">
-        <span class="stepper__num">2</span>
-        <span class="stepper__label">Слушатели</span>
-      </li>
-    </ol>
-
-    <div class="deal-box">
-      <label class="deal-box__label" for="deal-id-input">Номер вашего договора</label>
-      <input type="text" id="deal-id-input" class="deal-box__input" name="dealId"
-             inputmode="numeric" autocomplete="off" maxlength="9"
-             placeholder="если есть — впишите вручную">
-      <p id="deal-notice" class="deal-notice" role="status" hidden></p>
+<div class="page">
+  <div class="hero">
+    <img class="hero__icon" src="assets/rocket.png" alt="" aria-hidden="true">
+    <div class="hero__text">
+      <h1 class="hero__title">Заявка на обучение</h1>
+      <p class="hero__sub">Заполните данные учреждения и список слушателей — менеджер подготовит договор и свяжется с вами.</p>
     </div>
-  </header>
+  </div>
+
+  <div class="deal-box">
+    <label class="deal-box__label" for="deal-id-input">Номер вашего договора</label>
+    <input type="text" id="deal-id-input" class="deal-box__input" name="dealId"
+           inputmode="numeric" autocomplete="off" maxlength="9"
+           placeholder="если есть — впишите вручную">
+    <p id="deal-notice" class="deal-notice" role="status" hidden></p>
+  </div>
 
   <div id="form-errors" class="form-errors" role="alert" hidden>
     <p class="form-errors__title">Пожалуйста, исправьте:</p>
@@ -53,15 +57,8 @@
     <button type="button" id="submit-error-close" class="btn btn--ghost btn--small">Скрыть</button>
   </div>
 
-  <form id="application-form" novalidate>
-
-    <!-- ==================== БЛОК 1: ЗАЯВИТЕЛЬ ==================== -->
-    <section class="card" aria-labelledby="org-heading">
-      <h2 id="org-heading" class="card__title">
-        <span class="card__num">1</span>
-        <span class="card__title-text">Данные заявителя</span>
-        <img class="card__icon" src="assets/target.png" alt="" aria-hidden="true">
-      </h2>
+  <div class="layout">
+    <form id="application-form" class="stack" novalidate>
 
       <!-- Ветка ФЛ временно скрыта (будет переработана отдельно). legal_entity
            остаётся checked и единственным путём через JS-логику, поэтому весь
@@ -78,245 +75,307 @@
         </div>
       </fieldset>
 
-      <div class="subsection">
-        <h3 class="subsection__title legal-entity-only">Контактное лицо</h3>
-
-        <div class="field legal-entity-only">
-          <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
-          <input type="text" id="org-headfio" name="headFio" autocomplete="name">
-        </div>
-
-        <div class="grid-2">
-          <div class="field legal-entity-only">
-            <label for="org-phone">Телефон <span class="req">*</span></label>
-            <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67">
+      <!-- ==================== КАРТОЧКА 1: КОНТАКТНОЕ ЛИЦО ==================== -->
+      <section class="card" data-section="Контактное лицо" aria-labelledby="contact-heading">
+        <div class="card__head">
+          <div class="card__num">1</div>
+          <div class="card__titles">
+            <h2 id="contact-heading" class="card__title">Контактное лицо</h2>
+            <p class="card__sub">С кем будет вестись коммуникация по обучению</p>
           </div>
-
-          <div class="field legal-entity-only">
-            <label for="org-email">Email <span class="req">*</span></label>
-            <input type="email" id="org-email" name="email" autocomplete="email" placeholder="name@example.com">
-          </div>
+          <span class="status" data-status><span class="ring"></span><span class="status__label">0 из 0</span><span class="status__check">✓ Готово</span></span>
         </div>
+        <div class="card__body">
+          <div class="grid g2">
+            <div class="field col-2 legal-entity-only" data-req>
+              <label for="org-headfio">ФИО руководителя <span class="req">*</span></label>
+              <input type="text" id="org-headfio" name="headFio" autocomplete="name">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
 
-        <div class="field">
-          <label for="org-comment">Дополнительный комментарий</label>
-          <textarea id="org-comment" name="comment" rows="3" placeholder="Необязательно"></textarea>
-        </div>
-      </div>
+            <div class="field legal-entity-only" data-req>
+              <label for="org-phone">Телефон <span class="req">*</span></label>
+              <input type="tel" id="org-phone" name="phone" autocomplete="tel" placeholder="+7 999 123-45-67">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
 
-      <div class="subsection legal-entity-only">
-        <h3 class="subsection__title">Реквизиты учреждения</h3>
+            <div class="field legal-entity-only" data-req>
+              <label for="org-email">Email <span class="req">*</span></label>
+              <input type="email" id="org-email" name="email" autocomplete="email" placeholder="name@example.com">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
 
-        <div class="field field--relative">
-          <label for="org-inn">ИНН <span class="req">*</span></label>
-          <input type="text" id="org-inn" name="inn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр">
-          <p class="hint" id="inn-status" aria-live="polite"></p>
-        </div>
-
-        <div class="field">
-          <label for="org-fullname">Полное наименование учреждения <span class="req">*</span></label>
-          <input type="text" id="org-fullname" name="fullName" autocomplete="organization">
-        </div>
-
-        <h4 class="subsection__subtitle">Банковские реквизиты</h4>
-
-        <div class="field">
-          <label for="org-bank-name">Банк <span class="req">*</span></label>
-          <input type="text" id="org-bank-name" name="bankName" placeholder="подставится по БИК, можно поправить">
-        </div>
-
-        <div class="grid-2">
-          <div class="field field--relative">
-            <label for="org-bik">БИК <span class="req">*</span></label>
-            <input type="text" id="org-bik" name="bik" inputmode="numeric" maxlength="9" placeholder="9 цифр">
-            <p class="hint" id="bik-status" aria-live="polite"></p>
-          </div>
-
-          <div class="field">
-            <label for="org-corr-account">Кор. счёт <span class="req">*</span></label>
-            <input type="text" id="org-corr-account" name="correspondentAccount" inputmode="numeric" maxlength="20" placeholder="подставится по БИК">
+            <div class="field col-2">
+              <label for="org-comment">Дополнительный комментарий <span class="lhint">необязательно</span></label>
+              <textarea id="org-comment" name="comment" rows="3" placeholder="Например, удобное время для звонка"></textarea>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div class="grid-2">
-          <div class="field">
-            <label for="org-settlement-account">Расчётный / казначейский счёт <span class="req">*</span></label>
-            <input type="text" id="org-settlement-account" name="settlementAccount" inputmode="numeric" maxlength="20" placeholder="20 цифр">
+      <!-- ==================== КАРТОЧКА 2: РЕКВИЗИТЫ УЧРЕЖДЕНИЯ ==================== -->
+      <section class="card" data-section="Реквизиты учреждения" aria-labelledby="req-heading">
+        <div class="card__head">
+          <div class="card__num">2</div>
+          <div class="card__titles">
+            <h2 id="req-heading" class="card__title">Реквизиты учреждения</h2>
+            <p class="card__sub">Введите ИНН и БИК в соответствующие поля — часть данных заполнится автоматически</p>
+          </div>
+          <span class="status" data-status><span class="ring"></span><span class="status__label">0 из 0</span><span class="status__check">✓ Готово</span></span>
+        </div>
+        <div class="card__body">
+          <div class="grid g2">
+            <div class="field field--relative legal-entity-only" data-req>
+              <label for="org-inn">ИНН <span class="req">*</span></label>
+              <input type="text" id="org-inn" name="inn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр">
+              <p class="hint" id="inn-status" aria-live="polite"></p>
+            </div>
+
+            <div class="field legal-entity-only" data-req>
+              <label for="org-kpp">КПП <span class="req">*</span></label>
+              <input type="text" id="org-kpp" name="kpp" inputmode="numeric" maxlength="9" placeholder="подставится по ИНН, можно поправить">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field col-2 legal-entity-only" data-req>
+              <label for="org-fullname">Полное наименование учреждения <span class="req">*</span></label>
+              <input type="text" id="org-fullname" name="fullName" autocomplete="organization">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field col-2 field--relative legal-entity-only" data-req>
+              <label for="org-address">Юридический адрес <span class="req">*</span></label>
+              <input type="text" id="org-address" name="address" autocomplete="off" placeholder="начните вводить или дождитесь подбора по ИНН">
+              <ul id="org-address-suggestions" class="suggestions" hidden></ul>
+            </div>
+
+            <div class="subhead">Банковские реквизиты</div>
+
+            <div class="field col-2 legal-entity-only" data-req>
+              <label for="org-bank-name">Банк <span class="req">*</span></label>
+              <input type="text" id="org-bank-name" name="bankName" placeholder="подставится по БИК, можно поправить">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field field--relative legal-entity-only" data-req>
+              <label for="org-bik">БИК <span class="req">*</span></label>
+              <input type="text" id="org-bik" name="bik" inputmode="numeric" maxlength="9" placeholder="9 цифр">
+              <p class="hint" id="bik-status" aria-live="polite"></p>
+            </div>
+
+            <div class="field legal-entity-only" data-req>
+              <label for="org-corr-account">Кор. счёт <span class="req">*</span></label>
+              <input type="text" id="org-corr-account" name="correspondentAccount" inputmode="numeric" maxlength="20" placeholder="подставится по БИК">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field legal-entity-only" data-req>
+              <label for="org-settlement-account">Расчётный / казначейский счёт <span class="req">*</span></label>
+              <input type="text" id="org-settlement-account" name="settlementAccount" inputmode="numeric" maxlength="20" placeholder="20 цифр">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field legal-entity-only">
+              <label for="org-personal-account">Лицевой счёт <span class="lhint">если есть</span></label>
+              <input type="text" id="org-personal-account" name="personalAccount" inputmode="numeric" maxlength="20" placeholder="если есть">
+            </div>
+
+            <div class="field col-2 legal-entity-only">
+              <label for="org-bank-extra">Дополнительные данные <span class="lhint">необязательно</span></label>
+              <textarea id="org-bank-extra" name="bankExtra" rows="2" placeholder="Если имеются дополнительные данные в реквизитах организации — пожалуйста, укажите их в этом поле"></textarea>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="org-personal-account">Лицевой счёт</label>
-            <input type="text" id="org-personal-account" name="personalAccount" inputmode="numeric" maxlength="20" placeholder="если есть">
-          </div>
-        </div>
+          <!-- Ветка ФЛ (скрыта; недостижима, пока переключатель типа заявителя спрятан) -->
+          <div class="individual-only" hidden>
+            <div class="grid g2">
+              <div class="subhead">Данные заявителя</div>
 
-        <div class="field">
-          <label for="org-bank-extra">Дополнительные данные</label>
-          <textarea id="org-bank-extra" name="bankExtra" rows="2" placeholder="Если имеются дополнительные данные в реквизитах организации — пожалуйста, укажите их в этом поле"></textarea>
-        </div>
+              <div class="field col-2">
+                <label for="fl-headfio">ФИО заявителя <span class="req">*</span></label>
+                <input type="text" id="fl-headfio" name="headFio" autocomplete="name" placeholder="Фамилия Имя Отчество">
+              </div>
 
-        <div class="grid-2">
-          <div class="field">
-            <label for="org-kpp">КПП</label>
-            <input type="text" id="org-kpp" name="kpp" inputmode="numeric" maxlength="9" placeholder="подставится по ИНН, можно поправить">
-          </div>
+              <div class="field col-2 field--relative">
+                <label for="fl-inn">ИНН места работы <span class="req">*</span></label>
+                <input type="text" id="fl-inn" name="workplaceInn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр — подставит место работы">
+                <p class="hint" id="fl-inn-status" aria-live="polite"></p>
+              </div>
 
-          <div class="field field--relative">
-            <label for="org-address">Юридический адрес</label>
-            <input type="text" id="org-address" name="address" autocomplete="off" placeholder="начните вводить или дождитесь подбора по ИНН">
-            <ul id="org-address-suggestions" class="suggestions" hidden></ul>
-          </div>
-        </div>
-      </div>
+              <div class="field col-2">
+                <label for="fl-workplace">Место работы <span class="req">*</span></label>
+                <input type="text" id="fl-workplace" name="workplace" placeholder="Организация, где вы работаете">
+              </div>
 
-      <div class="subsection legal-entity-only">
-        <h3 class="subsection__title">Условия договора</h3>
-
-        <div class="field">
-          <label for="org-document-type">Тип документа <span class="req">*</span></label>
-          <select id="org-document-type" name="documentType">
-            <option value="" disabled selected>Выберите тип документа</option>
-            <option value="contract">Договор</option>
-            <option value="state_contract">Контракт</option>
-            <option value="municipal_contract">Муниципальный контракт</option>
-          </select>
-        </div>
-
-        <div class="grid-2">
-          <fieldset class="field">
-            <legend>Закон-основание <span class="req">*</span></legend>
-            <div class="radio-row">
-              <label class="radio-label">
-                <input type="radio" name="lawType" value="44-fz"> 44-ФЗ
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="lawType" value="223-fz"> 223-ФЗ
+              <label class="radio-label col-2">
+                <input type="checkbox" id="fl-unemployed" name="selfEmployedOrUnemployed"> Самозанятый(ая) или временно не работаю
               </label>
             </div>
-          </fieldset>
+          </div>
+        </div>
+      </section>
 
-          <fieldset class="field">
-            <legend>Нужен ИКЗ? <span class="req">*</span></legend>
-            <div class="radio-row">
-              <label class="radio-label">
-                <input type="radio" name="ikzRequired" value="yes"> Да
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="ikzRequired" value="no"> Нет
-              </label>
+      <!-- ==================== КАРТОЧКА 3: УСЛОВИЯ ДОГОВОРА ==================== -->
+      <section class="card" data-section="Условия договора" aria-labelledby="terms-heading">
+        <div class="card__head">
+          <div class="card__num">3</div>
+          <div class="card__titles">
+            <h2 id="terms-heading" class="card__title">Условия договора</h2>
+            <p class="card__sub">Как оформляется закупка</p>
+          </div>
+          <span class="status" data-status><span class="ring"></span><span class="status__label">0 из 0</span><span class="status__check">✓ Готово</span></span>
+        </div>
+        <div class="card__body">
+          <div class="grid g2">
+            <div class="field col-2 legal-entity-only" data-req>
+              <label for="org-document-type">Тип документа <span class="req">*</span></label>
+              <select id="org-document-type" name="documentType">
+                <option value="" disabled selected>Выберите тип документа</option>
+                <option value="contract">Договор</option>
+                <option value="state_contract">Контракт</option>
+                <option value="municipal_contract">Муниципальный контракт</option>
+              </select>
+              <span class="tick" aria-hidden="true">✓</span>
             </div>
-          </fieldset>
-        </div>
 
-        <div class="field" id="ikz-number-field" hidden>
-          <label for="org-ikz-number">Номер ИКЗ <span class="req">*</span></label>
-          <input type="text" id="org-ikz-number" name="ikzNumber" placeholder="Номер идентификационного кода закупки">
-        </div>
+            <fieldset class="field legal-entity-only" data-req>
+              <legend>Закон-основание <span class="req">*</span></legend>
+              <div class="radios">
+                <label class="chip"><input type="radio" name="lawType" value="44-fz"> 44-ФЗ</label>
+                <label class="chip"><input type="radio" name="lawType" value="223-fz"> 223-ФЗ</label>
+              </div>
+            </fieldset>
 
-        <div class="field">
-          <label for="org-funding-source">Источник финансирования услуг <span class="req">*</span></label>
-          <input type="text" id="org-funding-source" name="fundingSource" placeholder="например, средства местного бюджета">
+            <fieldset class="field legal-entity-only" data-req>
+              <legend>Нужен ИКЗ? <span class="req">*</span></legend>
+              <div class="radios">
+                <label class="chip"><input type="radio" name="ikzRequired" value="yes"> Да</label>
+                <label class="chip"><input type="radio" name="ikzRequired" value="no"> Нет</label>
+              </div>
+            </fieldset>
+
+            <div class="field col-2 legal-entity-only" id="ikz-number-field" data-req hidden>
+              <label for="org-ikz-number">Номер ИКЗ <span class="req">*</span></label>
+              <input type="text" id="org-ikz-number" name="ikzNumber" placeholder="Номер идентификационного кода закупки">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field col-2 legal-entity-only" data-req>
+              <label for="org-funding-source">Источник финансирования услуг <span class="req">*</span></label>
+              <input type="text" id="org-funding-source" name="fundingSource" placeholder="например, средства местного бюджета">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+          </div>
         </div>
+      </section>
+
+      <!-- ==================== КАРТОЧКА 4: ПОЛУЧЕНИЕ ДОГОВОРА ==================== -->
+      <section class="card" data-section="Получение договора" id="postal-address-section" aria-labelledby="delivery-heading">
+        <div class="card__head">
+          <div class="card__num">4</div>
+          <div class="card__titles">
+            <h2 id="delivery-heading" class="card__title">Получение договора</h2>
+            <p class="card__sub">Куда и как отправить оригиналы</p>
+          </div>
+          <span class="status" data-status><span class="ring"></span><span class="status__label">0 из 0</span><span class="status__check">✓ Готово</span></span>
+        </div>
+        <div class="card__body">
+          <div class="grid g2">
+            <div class="field col-2" data-req>
+              <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
+              <select id="org-originals-delivery" name="originalsDelivery" required>
+                <option value="" disabled selected>Выберите способ</option>
+                <option value="sbis">Через ЭДО - СБИС</option>
+                <option value="kontur">Через ЭДО - Контур</option>
+                <option value="russian_post">Почтой России</option>
+              </select>
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="subhead">Почтовый адрес для отправки документов</div>
+
+            <div class="field" data-req>
+              <label for="postal-index">Индекс <span class="req">*</span></label>
+              <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field field--relative" data-req>
+              <label for="postal-address">Адрес <span class="req">*</span></label>
+              <input type="text" id="postal-address" name="postalAddressLine" autocomplete="off" placeholder="Город, улица, дом, квартира/офис">
+              <ul id="postal-address-suggestions" class="suggestions" hidden></ul>
+            </div>
+
+            <div class="field col-2 legal-entity-only" id="postal-orgname-field" data-req>
+              <label for="postal-orgname">Наименование учреждения <span class="lhint">получатель на конверте</span> <span class="req">*</span></label>
+              <input type="text" id="postal-orgname" name="postalOrgName" placeholder="подставится из наименования учреждения">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+
+            <div class="field col-2" id="postal-headfio-field" data-req>
+              <label class="radio-label individual-only" id="postal-headfio-selfcheck-wrap">
+                <input type="checkbox" id="postal-headfio-selfcheck" checked> Получатель — это я (совпадает с ФИО заявителя)
+              </label>
+              <label for="postal-headfio">ФИО получателя <span class="req">*</span></label>
+              <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится автоматически">
+              <span class="tick" aria-hidden="true">✓</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== КАРТОЧКА 5: СЛУШАТЕЛИ ==================== -->
+      <section class="card card--wide" data-section="Слушатели" aria-labelledby="listeners-heading">
+        <div class="card__head">
+          <div class="card__num">5</div>
+          <div class="card__titles">
+            <h2 id="listeners-heading" class="card__title">Слушатели</h2>
+            <p class="card__sub">Добавьте всех, кого нужно обучить</p>
+          </div>
+          <span class="status" data-status><span class="ring"></span><span class="status__label">0 из 0</span><span class="status__check">✓ Готово</span></span>
+        </div>
+        <div class="card__body">
+          <p class="card__lead">Для отдельных курсов появятся дополнительные поля — должность и причина прохождения.</p>
+
+          <div class="listeners-table">
+            <div class="listeners-head" aria-hidden="true">
+              <span class="lh lh--course">Курс <span class="req">*</span></span>
+              <span class="lh lh--hours">Часы</span>
+              <span class="lh lh--date">Дата начала обучения <span class="req">*</span></span>
+              <span class="lh lh--fio">ФИО слушателя <span class="req">*</span></span>
+              <span class="lh lh--email">Email <span class="req">*</span></span>
+              <span class="lh lh--phone">Телефон <span class="req">*</span></span>
+            </div>
+
+            <div id="listeners-list"></div>
+          </div>
+
+          <button type="button" id="add-listener-btn" class="btn btn--secondary">
+            <span class="btn__plus" aria-hidden="true">+</span> Добавить слушателя
+          </button>
+        </div>
+      </section>
+
+      <div class="submit-row">
+        <button type="submit" id="submit-btn" class="btn btn--primary">Отправить заявку</button>
       </div>
+    </form>
 
-      <div class="subsection individual-only" hidden>
-        <h3 class="subsection__title">Занятость</h3>
-
-        <div class="field">
-          <label for="fl-headfio">ФИО заявителя <span class="req">*</span></label>
-          <input type="text" id="fl-headfio" name="headFio" autocomplete="name" placeholder="Фамилия Имя Отчество">
+    <!-- ==================== САЙДБАР: ПРОГРЕСС ==================== -->
+    <aside class="side">
+      <div class="nav">
+        <div class="nav__head">
+          <h3 class="nav__title">Ваш прогресс</h3>
+          <div class="nav__big">
+            <span class="nav__pct" id="nav-pct">0%</span>
+            <span class="nav__pctlabel">заполнено</span>
+          </div>
+          <p class="nav__left">Осталось <b id="nav-left">—</b> в <b id="nav-sec-left">—</b></p>
         </div>
-
-        <div class="field field--relative">
-          <label for="fl-inn">ИНН места работы <span class="req">*</span></label>
-          <input type="text" id="fl-inn" name="workplaceInn" inputmode="numeric" maxlength="12" placeholder="10 или 12 цифр — подставит место работы">
-          <p class="hint" id="fl-inn-status" aria-live="polite"></p>
-        </div>
-
-        <div class="field">
-          <label for="fl-workplace">Место работы <span class="req">*</span></label>
-          <input type="text" id="fl-workplace" name="workplace" placeholder="Организация, где вы работаете">
-        </div>
-
-        <label class="radio-label">
-          <input type="checkbox" id="fl-unemployed" name="selfEmployedOrUnemployed"> Самозанятый(ая) или временно не работаю
-        </label>
+        <ul class="nav__list" id="nav-list"></ul>
       </div>
-
-      <div class="subsection">
-        <h3 class="subsection__title">Получение договора</h3>
-
-        <div class="field">
-          <label for="org-originals-delivery">Способ получения оригиналов договора <span class="req">*</span></label>
-          <select id="org-originals-delivery" name="originalsDelivery" required>
-            <option value="" disabled selected>Выберите способ</option>
-            <option value="sbis">Через ЭДО - СБИС</option>
-            <option value="kontur">Через ЭДО - Контур</option>
-            <option value="russian_post">Почтой России</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="subsection" id="postal-address-section">
-        <h3 class="subsection__title">Почтовый адрес для отправки документов</h3>
-
-        <div class="field">
-          <label for="postal-index">Индекс <span class="req">*</span></label>
-          <input type="text" id="postal-index" name="postalIndex" inputmode="numeric" maxlength="6" placeholder="6 цифр">
-        </div>
-
-        <div class="field field--relative">
-          <label for="postal-address">Адрес <span class="req">*</span></label>
-          <input type="text" id="postal-address" name="postalAddressLine" autocomplete="off" placeholder="Город, улица, дом, квартира/офис">
-          <ul id="postal-address-suggestions" class="suggestions" hidden></ul>
-        </div>
-
-        <div class="field legal-entity-only" id="postal-orgname-field">
-          <label for="postal-orgname">Наименование учреждения <span class="req">*</span></label>
-          <input type="text" id="postal-orgname" name="postalOrgName" placeholder="подставится из наименования учреждения">
-        </div>
-
-        <div class="field" id="postal-headfio-field">
-          <label class="radio-label individual-only" id="postal-headfio-selfcheck-wrap">
-            <input type="checkbox" id="postal-headfio-selfcheck" checked> Получатель — это я (совпадает с ФИО заявителя)
-          </label>
-          <label for="postal-headfio">ФИО получателя <span class="req">*</span></label>
-          <input type="text" id="postal-headfio" name="postalHeadFio" placeholder="подставится автоматически">
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================== БЛОК 2: СЛУШАТЕЛИ ==================== -->
-    <section class="card card--wide" aria-labelledby="listeners-heading">
-      <h2 id="listeners-heading" class="card__title">
-        <span class="card__num">2</span>
-        <span class="card__title-text">Слушатели</span>
-        <img class="card__icon" src="assets/cap.png" alt="" aria-hidden="true">
-      </h2>
-      <p class="card__lead">Добавьте всех, кого нужно обучить. Для отдельных курсов появятся дополнительные поля — должность и причина прохождения.</p>
-
-      <div class="listeners-table">
-        <div class="listeners-head" aria-hidden="true">
-          <span class="lh lh--course">Курс <span class="req">*</span></span>
-          <span class="lh lh--hours">Часы</span>
-          <span class="lh lh--date">Дата начала обучения <span class="req">*</span></span>
-          <span class="lh lh--fio">ФИО слушателя <span class="req">*</span></span>
-          <span class="lh lh--email">Email <span class="req">*</span></span>
-          <span class="lh lh--phone">Телефон <span class="req">*</span></span>
-        </div>
-
-        <div id="listeners-list"></div>
-      </div>
-
-      <button type="button" id="add-listener-btn" class="btn btn--secondary">
-        <span class="btn__plus" aria-hidden="true">+</span> Добавить слушателя
-      </button>
-    </section>
-
-    <div class="submit-row">
-      <button type="submit" id="submit-btn" class="btn btn--primary">Отправить заявку</button>
-    </div>
-  </form>
+    </aside>
+  </div>
 
   <div id="success-screen" class="success-screen" hidden>
     <img class="success-screen__badge" src="assets/star.png" alt="" aria-hidden="true">
@@ -358,7 +417,7 @@
     </div>
 
     <div class="listener-grid">
-      <div class="field lr-cell lr--course">
+      <div class="field lr-cell lr--course" data-req>
         <label>Курс <span class="req">*</span></label>
         <button type="button" class="listener-course-btn">
           <span class="listener-course-btn__text">Выбрать курс</span>
@@ -371,40 +430,44 @@
         <input type="text" class="listener-hours" readonly placeholder="—">
       </div>
 
-      <div class="field lr-cell lr--date">
+      <div class="field lr-cell lr--date" data-req>
         <label>Дата начала обучения <span class="req">*</span></label>
         <input type="date" class="listener-date" required>
       </div>
 
-      <div class="field lr-cell lr--fio">
+      <div class="field lr-cell lr--fio" data-req>
         <label>ФИО слушателя (как в паспорте) <span class="req">*</span></label>
         <input type="text" class="listener-fio" required>
+        <span class="tick" aria-hidden="true">✓</span>
         <label class="radio-label listener-self-fio" hidden>
           <input type="checkbox" class="listener-self-fio-check"> Это я — подставить ФИО заявителя
         </label>
       </div>
 
-      <div class="field lr-cell lr--email">
+      <div class="field lr-cell lr--email" data-req>
         <label>Email <span class="req">*</span></label>
         <input type="email" class="listener-email" required>
+        <span class="tick" aria-hidden="true">✓</span>
       </div>
 
-      <div class="field lr-cell lr--phone">
+      <div class="field lr-cell lr--phone" data-req>
         <label>Личный телефон <span class="req">*</span></label>
         <input type="tel" class="listener-phone" placeholder="+7 999 123-45-67" required>
+        <span class="tick" aria-hidden="true">✓</span>
       </div>
 
-      <div class="field lr-cell lr--extra listener-position-field" hidden>
+      <div class="field lr-cell lr--extra listener-position-field" data-req hidden>
         <label>Должность <span class="req">*</span></label>
         <input type="text" class="listener-position">
+        <span class="tick" aria-hidden="true">✓</span>
       </div>
 
-      <fieldset class="field lr-cell lr--extra listener-reason-field" hidden>
+      <fieldset class="field lr-cell lr--extra listener-reason-field" data-req hidden>
         <legend>Причина прохождения <span class="req">*</span></legend>
-        <div class="radio-row">
-          <label class="radio-label"><input type="radio" class="listener-reason" value="primary"> Первичная</label>
-          <label class="radio-label"><input type="radio" class="listener-reason" value="regular"> Очередная</label>
-          <label class="radio-label"><input type="radio" class="listener-reason" value="extraordinary"> Внеочередная</label>
+        <div class="radios">
+          <label class="chip"><input type="radio" class="listener-reason" value="primary"> Первичная</label>
+          <label class="chip"><input type="radio" class="listener-reason" value="regular"> Очередная</label>
+          <label class="chip"><input type="radio" class="listener-reason" value="extraordinary"> Внеочередная</label>
         </div>
       </fieldset>
     </div>

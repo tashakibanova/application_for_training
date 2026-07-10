@@ -157,6 +157,9 @@ function init() {
     const addressInput = document.getElementById('org-address');
     addressInput.value = s.value;
     addressInput.dataset.postalCode = (s.data && s.data.postal_code) || '';
+    mirrorPostalAddress();
+    mirrorPostalIndex();
+    recompute();
   });
   // Почтовый адрес: выбор подсказки подставляет адрес И сразу перезаписывает
   // индекс (осознанный выбор пользователя — можно перезаписать без оглядки на
@@ -165,6 +168,7 @@ function init() {
     document.getElementById('postal-address').value = s.value;
     const postalCode = s.data && s.data.postal_code;
     if (postalCode) document.getElementById('postal-index').value = postalCode;
+    recompute();
   });
   // Почтовый адрес больше не завязан на способ получения оригиналов — блок
   // всегда виден (см. index.html), поэтому просто пробуем смёрджить значения
@@ -185,7 +189,25 @@ function init() {
 
   document.getElementById('submit-error-close').addEventListener('click', hideSubmitError);
 
+  wireTheme();
+  wireProgress();
+
   loadCourses();
+}
+
+/* =====================================================================
+ * Переключатель темы. По умолчанию сайт светлый — index.html ставит
+ * data-theme="light" до отрисовки. Кнопка в шапке переключает свет/тьму.
+ * ===================================================================== */
+function wireTheme() {
+  const btn = document.getElementById('theme-btn');
+  if (!btn) return;
+  const root = document.documentElement;
+  btn.addEventListener('click', () => {
+    let cur = root.getAttribute('data-theme');
+    if (!cur) cur = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
 }
 
 // Поле «ID сделки» — подстраховка на случай, если менеджер не дописал ?deal= в
@@ -337,6 +359,8 @@ function wireApplicantType() {
     document.querySelectorAll('.listener-row').forEach((row) => {
       applyListenerSelfFioVisibility(row, isIndividual);
     });
+
+    recompute();
   }
 
   radios.forEach((r) => r.addEventListener('change', update));
@@ -505,6 +529,7 @@ function wireIkzToggle() {
     field.hidden = !show;
     input.required = show;
     if (!show) input.value = '';
+    recompute();
   }
 
   radios.forEach((r) => r.addEventListener('change', update));
@@ -565,6 +590,8 @@ function applyWorkplaceSuggestion(suggestion) {
   const workplaceInput = document.getElementById('fl-workplace');
   const fullName = (d.name && (d.name.short_with_opf || d.name.full_with_opf)) || suggestion.value;
   if (fullName) workplaceInput.value = fullName;
+
+  recompute();
 }
 
 async function suggestPartyByInn(inn) {
@@ -612,6 +639,8 @@ function applyPartySuggestion(suggestion) {
   mirrorPostalHeadFio();
   mirrorPostalAddress();
   mirrorPostalIndex();
+
+  recompute();
 }
 
 // Автоподбор банка по БИК через DaData (findById/bank). При полном вводе 9 цифр
@@ -688,6 +717,8 @@ function applyBankSuggestion(suggestion) {
   // а в treasury_accounts. У обычных банков — наоборот, treasury_accounts нет.
   const correspondentAccount = d.correspondent_account || (d.treasury_accounts && d.treasury_accounts[0]);
   if (correspondentAccount) corrAccountInput.value = correspondentAccount;
+
+  recompute();
 }
 
 // Общий DaData-автоподбор адреса. Переиспользуется для #org-address (юр.адрес)
@@ -810,11 +841,13 @@ function addListenerRow() {
     rowEl.remove();
     updateListenerRemoveButtons();
     renumberListenerTitles();
+    recompute();
   });
 
   document.getElementById('listeners-list').appendChild(rowEl);
   updateListenerRemoveButtons();
   renumberListenerTitles();
+  recompute();
   return rowEl;
 }
 
@@ -840,6 +873,9 @@ function onListenerCourseChange(rowEl) {
     positionInput.value = '';
     reasonRadios.forEach((r) => (r.checked = false));
   }
+
+  // Показ/скрытие доп.полей меняет число видимых обязательных полей — пересчёт.
+  recompute();
 }
 
 /* ---------------------------------------------------------------------
@@ -1144,6 +1180,133 @@ function sendTrackBeacon() {
 }
 
 /* =====================================================================
+ * Живой прогресс: мини-бар в шапке + сайдбар-чеклист
+ *
+ * Считаем только видимые обязательные поля (.field[data-req]) в каждой
+ * карточке-разделе (.card[data-section]). recompute() вызывается на любое
+ * изменение формы (input/change/focusout), а также вручную после
+ * программных подстановок (DaData, выбор курса, добавление/удаление
+ * слушателя, переключатели ИКЗ/типа заявителя) — там DOM-события не летят.
+ * ===================================================================== */
+
+function wireProgress() {
+  const form = document.getElementById('application-form');
+  if (!form) return;
+  // focusout ловит зеркалирование почтовых полей по blur (значение туда
+  // проставляется программно, без input-события у самого поля-приёмника).
+  ['input', 'change', 'focusout'].forEach((evt) => form.addEventListener(evt, recompute));
+  recompute();
+}
+
+// Заполнено ли обязательное поле. Радиогруппы — по выбранному input; курс — по
+// скрытому input.listener-course; остальное — по первому «настоящему» контролу
+// (пропускаем скрытые checkbox/radio-переключатели вроде «Получатель — это я»,
+// иначе отмеченный по умолчанию чекбокс ложно считался бы заполнением поля).
+function fieldFilled(field) {
+  if (field.querySelector('.radios')) {
+    return !!field.querySelector('.radios input:checked');
+  }
+  const controls = field.querySelectorAll('input, select, textarea');
+  for (const c of controls) {
+    if (c.type === 'hidden') {
+      if (c.classList.contains('listener-course')) return c.value.trim() !== '';
+      continue;
+    }
+    if (c.type === 'checkbox' || c.type === 'radio') continue;
+    if (c.disabled) continue;
+    if (c.hasAttribute('readonly')) return true;
+    return c.value.trim() !== '';
+  }
+  return false;
+}
+
+function isFieldCountable(field) {
+  return !field.hidden && !field.closest('[hidden]');
+}
+
+function recompute() {
+  const navList = document.getElementById('nav-list');
+  const cards = document.querySelectorAll('.card[data-section]');
+  if (!navList) return;
+  navList.innerHTML = '';
+
+  let totalReq = 0;
+  let totalDone = 0;
+  let secLeft = 0;
+
+  cards.forEach((card) => {
+    let n = 0;
+    let done = 0;
+    card.querySelectorAll('.field[data-req]').forEach((f) => {
+      if (!isFieldCountable(f)) return;
+      n += 1;
+      const ok = fieldFilled(f);
+      const plain = !f.querySelector('.radios') && !f.querySelector('.listener-course');
+      f.classList.toggle('is-filled', ok && plain);
+      if (ok) done += 1;
+    });
+
+    totalReq += n;
+    totalDone += done;
+    const complete = n > 0 && done === n;
+    if (!complete) secLeft += 1;
+    card.classList.toggle('is-complete', complete);
+
+    const status = card.querySelector('[data-status]');
+    if (status) {
+      status.classList.toggle('is-done', complete);
+      const ring = status.querySelector('.ring');
+      if (ring) ring.style.setProperty('--p', n ? (done / n) * 100 : 0);
+      const label = status.querySelector('.status__label');
+      if (label) label.textContent = done + ' из ' + n;
+    }
+
+    const pctSection = n ? (done / n) * 100 : 0;
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nav__item' + (complete ? ' is-done' : '');
+    btn.innerHTML =
+      '<span class="nav__ico" style="--p:' + pctSection + '"></span>' +
+      '<span class="nav__txt"><span class="nav__name"></span><span class="nav__meta"></span></span>';
+    btn.querySelector('.nav__name').textContent = card.getAttribute('data-section');
+    btn.querySelector('.nav__meta').textContent = complete ? 'заполнено' : done + ' из ' + n + ' полей';
+    btn.addEventListener('click', () => card.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    li.appendChild(btn);
+    navList.appendChild(li);
+  });
+
+  const pct = totalReq ? Math.round((totalDone / totalReq) * 100) : 0;
+  const left = totalReq - totalDone;
+
+  setTextById('bar-pct', pct + '%');
+  setTextById('nav-pct', pct + '%');
+  const fill = document.getElementById('bar-fill');
+  if (fill) fill.style.width = pct + '%';
+  setTextById(
+    'bar-left',
+    left === 0
+      ? 'всё готово к отправке'
+      : 'осталось ' + left + ' ' + plural(left, 'обязательное поле', 'обязательных поля', 'обязательных полей')
+  );
+  setTextById('nav-left', left + ' ' + plural(left, 'поле', 'поля', 'полей'));
+  setTextById('nav-sec-left', secLeft + ' ' + plural(secLeft, 'разделе', 'разделах', 'разделах'));
+}
+
+function setTextById(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function plural(n, one, few, many) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+
+/* =====================================================================
  * Валидация
  * ===================================================================== */
 
@@ -1181,6 +1344,23 @@ function validateForm() {
       markInvalid(inn, errors, 'Укажите ИНН организации.');
     } else if (innDigits.length !== 10 && innDigits.length !== 12) {
       markInvalid(inn, errors, 'ИНН должен содержать 10 или 12 цифр.');
+    }
+
+    // КПП и юр.адрес теперь обязательны для ЮЛ (см. CONTRACT.md §2 и
+    // validateSubmitPayload в yandex-function). КПП — ровно 9 символов
+    // (обычно цифры, но у обособленных/иностранных возможны буквы, поэтому
+    // проверяем длину, а не «только цифры»).
+    const kpp = document.getElementById('org-kpp');
+    const kppVal = kpp.value.trim();
+    if (!kppVal) {
+      markInvalid(kpp, errors, 'Укажите КПП организации.');
+    } else if (kppVal.length !== 9) {
+      markInvalid(kpp, errors, 'КПП должен содержать 9 символов.');
+    }
+
+    const address = document.getElementById('org-address');
+    if (!address.value.trim()) {
+      markInvalid(address, errors, 'Укажите юридический адрес организации.');
     }
 
     const documentType = document.getElementById('org-document-type');

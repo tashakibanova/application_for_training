@@ -216,7 +216,7 @@ function validateSubmitPayload(payload) {
 
   if (org.applicantType === 'legal_entity') {
     const requiredOrgFields = [
-      'fullName', 'inn', 'documentType', 'lawType', 'fundingSource', 'phone', 'email',
+      'fullName', 'inn', 'kpp', 'address', 'documentType', 'lawType', 'fundingSource', 'phone', 'email',
       'bankName', 'bik', 'settlementAccount', 'correspondentAccount',
     ];
     for (const field of requiredOrgFields) {

@@ -142,7 +142,7 @@
 Поля:
 - `dealId`: строка или `null`, если параметра `?deal=` не было в URL.
 - `organization.applicantType` ∈ `"legal_entity" | "individual"` — определяет, какие поля обязательны (см. ниже).
-- Поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`, `bankName`, `bik`, `settlementAccount`, `correspondentAccount`, `personalAccount`, `bankExtra`) — заполнены только при `applicantType === "legal_entity"`, иначе все `null`. Обязательны все, кроме `kpp`, `address`, `ikzNumber` (условно), `personalAccount` и `bankExtra` (см. ниже).
+- Поля-реквизиты учреждения (`fullName`, `inn`, `kpp`, `address`, `documentType`, `lawType`, `ikzRequired`, `ikzNumber`, `fundingSource`, `bankName`, `bik`, `settlementAccount`, `correspondentAccount`, `personalAccount`, `bankExtra`) — заполнены только при `applicantType === "legal_entity"`, иначе все `null`. Обязательны все, кроме `ikzNumber` (условно — только если `ikzRequired === true`), `personalAccount` и `bankExtra` (см. ниже). `kpp` и `address` тоже обязательны для ЮЛ.
 - `organization.documentType` ∈ `"contract" | "state_contract" | "municipal_contract"` | `null`.
 - `organization.lawType` ∈ `"44-fz" | "223-fz"` | `null`.
 - `organization.ikzRequired`: boolean | `null`; `ikzNumber` обязателен, только если `true`.
