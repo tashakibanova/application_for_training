@@ -24,15 +24,29 @@ const REASON_LABELS = {
 };
 
 const XLSX_HEADER = [
-  'Курс',
+  'Наименование курса',
   'Кол-во часов',
   'Дата проведения',
   'ФИО слушателя',
-  'Email',
-  'Личный телефон',
+  'Адрес',
+  'Email слушателя',
+  'Телефон слушателя',
+  'Контактное лицо',
+  'Email контактного лица',
+  'ID сделки',
   'Должность',
   'Причина прохождения',
 ];
+
+// Часы почти всегда зашиты в название курса, напр. "... (108 часов)" (см.
+// scripts/export-catalog.js, extractHours) — в отдельной колонке "Кол-во
+// часов" это дублирование, поэтому для xlsx вырезаем такой фрагмент из имени.
+function stripHoursFromCourseName(name) {
+  return (name || '')
+    .replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*час(?:а|ов)?\s*\)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -76,14 +90,24 @@ function emptyResponse(statusCode, cors) {
 // xlsx
 // ---------------------------------------------------------------------------
 
-function buildListenersXlsxBase64(listeners) {
+function buildListenersXlsxBase64(listeners, organization, dealId) {
+  // Реквизиты организации — общие для всех строк одной заявки, поэтому
+  // повторяются в каждой строке слушателя (см. техдолг: порядок колонок).
+  const address = (organization && organization.postalAddress && organization.postalAddress.address) || '';
+  const contactPerson = organization ? [organization.headFio, organization.phone].filter(Boolean).join(', ') : '';
+  const contactEmail = (organization && organization.email) || '';
+
   const rows = listeners.map((l) => [
-    l.courseName || '',
+    stripHoursFromCourseName(l.courseName),
     typeof l.hours === 'number' ? l.hours : '',
     l.date || '',
     l.fio || '',
+    address,
     l.email || '',
     l.phone || '',
+    contactPerson,
+    contactEmail,
+    dealId || '',
     l.position || '',
     l.reason ? REASON_LABELS[l.reason] || l.reason : '',
   ]);
@@ -136,6 +160,22 @@ const DELIVERY_LABELS = { sbis: 'СБИС', kontur: 'Контур', russian_post
 function buildCommentText(organization, listeners, coursesSummary, submittedAt) {
   const lines = ['Заявка на обучение через веб-форму.', ''];
   const isIndividual = organization.applicantType === 'individual';
+
+  // Краткая сводка для быстрого просмотра (см. техдолг): компания, ИНН,
+  // контактное лицо, адрес доставки документов. Дублирует часть данных из
+  // подробного блока ниже намеренно — это TL;DR, а не замена подробностям.
+  if (!isIndividual) {
+    lines.push(`Организация: ${organization.fullName}`);
+    lines.push(`ИНН: ${organization.inn}`);
+    lines.push(`Контактное лицо: ${organization.headFio}`);
+    lines.push(`Телефон: ${organization.phone}`);
+    if (organization.email) lines.push(`Email: ${organization.email}`);
+    if (organization.postalAddress) {
+      const p = organization.postalAddress;
+      lines.push(`Адрес доставки документов: ${p.index}, ${p.address}`);
+    }
+    lines.push('', '— Подробности —', '');
+  }
 
   if (isIndividual) {
     lines.push(`Физлицо: ${organization.headFio}`);
@@ -384,7 +424,7 @@ async function handleSubmit(event, cors) {
 
   let xlsxBase64;
   try {
-    xlsxBase64 = buildListenersXlsxBase64(listeners);
+    xlsxBase64 = buildListenersXlsxBase64(listeners, organization, dealId);
   } catch (e) {
     console.error('xlsx build failed:', e && e.message);
     return jsonResponse(500, { ok: false, error: 'xlsx_generation_failed' }, cors);
