@@ -17,6 +17,7 @@ const FUNCTION_BASE_URL = 'https://functions.yandexcloud.net/d4eb9ra3isfnopa91co
 // Роутинг на стороне функции — через query-параметр, а не путь (см. yandex-function/README.md).
 const WORKER_URL = FUNCTION_BASE_URL + '?action=submit';
 const TRACK_URL = FUNCTION_BASE_URL + '?action=track';
+const LINK_CREATED_URL = FUNCTION_BASE_URL + '?action=link_created';
 
 const DADATA_PARTY_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party';
 const DADATA_ADDRESS_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';
@@ -40,6 +41,10 @@ const state = {
   submittedAt: null,
   trackSent: false,
   submittedSuccessfully: false,
+  // dealId, для которых уже отправлено событие "ссылка создана" (см.
+  // trackLinkCreated) — защита от повторной записи в таблицу метрик, если
+  // менеджер нажмёт "Скопировать" несколько раз для одной и той же ссылки.
+  linkCreatedDealIds: new Set(),
   // true во время программного восстановления черновика — автосохранение (см.
   // wireDraftAutosave()) в этот момент пропускает saveDraft(), иначе события
   // change/input, которые сама же реставрация диспатчит для переключения
@@ -298,6 +303,8 @@ function renderDealNotice() {
 // Копирует ссылку в буфер обмена. Основной путь — navigator.clipboard; на
 // старых браузерах / http-контексте, где его нет, — запасной execCommand.
 function copyDealLink(link, btn) {
+  trackLinkCreated(state.dealId);
+
   const original = btn.textContent;
   const confirm = () => {
     btn.textContent = 'Скопировано';
@@ -307,6 +314,28 @@ function copyDealLink(link, btn) {
     navigator.clipboard.writeText(link).then(confirm).catch(() => fallbackCopy(link, confirm));
   } else {
     fallbackCopy(link, confirm);
+  }
+}
+
+// Метрика "сколько ссылок на заявки создали и отправили клиентам менеджеры" —
+// пишется в отдельный лист Google-таблицы (см. CONTRACT.md §3a, §4.3). Клик на
+// "Скопировать" — надёжный сигнал именно передачи ссылки клиенту (в отличие,
+// например, от простого набора dealId), поэтому событие отправляется отсюда,
+// а не из момента блокировки поля #deal-id-input. keepalive нужен на случай,
+// если менеджер копирует ссылку и сразу закрывает вкладку.
+function trackLinkCreated(dealId) {
+  if (!dealId || state.linkCreatedDealIds.has(dealId)) return;
+  state.linkCreatedDealIds.add(dealId);
+
+  try {
+    fetch(LINK_CREATED_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dealId, createdAt: new Date().toISOString() }),
+      keepalive: true,
+    }).catch((err) => console.error('Не удалось отправить метрику link_created:', err));
+  } catch (err) {
+    console.error('Не удалось отправить метрику link_created:', err);
   }
 }
 

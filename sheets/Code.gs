@@ -10,6 +10,7 @@
 
 var SHEET_UNBOUND = 'Незакреплённые заявки';
 var SHEET_METRICS = 'Метрики эксперимента';
+var SHEET_LINK_CREATED = 'Созданные ссылки';
 
 var HEADERS_UNBOUND = [
   'receivedAt',
@@ -30,6 +31,11 @@ var HEADERS_METRICS = [
   'listenersCount',
   'status',
   'durationSeconds'
+];
+
+var HEADERS_LINK_CREATED = [
+  'createdAt',
+  'dealId'
 ];
 
 /**
@@ -65,6 +71,11 @@ function doPost(e) {
 
     if (sheetKey === 'metrics') {
       appendRow(SHEET_METRICS, HEADERS_METRICS, row);
+      return jsonResponse({ ok: true });
+    }
+
+    if (sheetKey === 'link_created') {
+      appendRow(SHEET_LINK_CREATED, HEADERS_LINK_CREATED, row);
       return jsonResponse({ ok: true });
     }
 

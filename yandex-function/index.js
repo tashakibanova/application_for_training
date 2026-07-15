@@ -516,6 +516,33 @@ async function handleTrack(event, cors) {
 }
 
 // ---------------------------------------------------------------------------
+// /link_created (?action=link_created) — менеджер нажал "Скопировать" на
+// сгенерированной ссылке с ?deal=, чтобы отправить её клиенту на заполнение.
+// ---------------------------------------------------------------------------
+
+async function handleLinkCreated(event, cors) {
+  let payload;
+  try {
+    payload = parseJsonBody(event);
+  } catch (e) {
+    return jsonResponse(400, { ok: false, error: 'invalid_json' }, cors);
+  }
+
+  const dealId = payload && payload.dealId ? String(payload.dealId) : null;
+  if (!dealId) return jsonResponse(400, { ok: false, error: 'missing_dealId' }, cors);
+
+  const row = {
+    createdAt: (payload && payload.createdAt) || new Date().toISOString(),
+    dealId,
+  };
+
+  const result = await sendToAppsScript('link_created', row);
+  if (!result.ok) console.error('/link_created: Apps Script call failed:', result.error);
+
+  return jsonResponse(200, { ok: true }, cors);
+}
+
+// ---------------------------------------------------------------------------
 // Точка входа
 // ---------------------------------------------------------------------------
 
@@ -538,6 +565,9 @@ module.exports.handler = async function (event, context) {
     }
     if (method === 'POST' && action === 'track') {
       return await handleTrack(event, cors);
+    }
+    if (method === 'POST' && action === 'link_created') {
+      return await handleLinkCreated(event, cors);
     }
   } catch (err) {
     console.error('Unhandled error:', err && err.message ? err.message : String(err));
