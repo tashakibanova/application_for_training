@@ -127,6 +127,7 @@
     "phone": "+79991234567",
     "email": "school1@example.com",
     "originalsDelivery": "sbis",
+    "originalsDeliveryOther": null,
     "comment": "Свободный текст комментария"
   },
   "listeners": [
@@ -167,6 +168,7 @@
     "phone": null,
     "email": null,
     "originalsDelivery": "sbis",
+    "originalsDeliveryOther": null,
     "comment": null
   }
 }
@@ -193,7 +195,8 @@
   - `organization.correspondentAccount`: строка (только цифры) или `null` — корреспондентский счёт (ЕКС); обязателен. Автоподставляется по БИК через DaData (`correspondent_account`).
   - `organization.personalAccount`: строка (только цифры) или `null` — лицевой счёт; **необязателен** (есть не у всех организаций). DaData его не знает — вводится вручную.
   - `organization.bankExtra`: строка или `null` — свободный текст для любых дополнительных данных в банковских реквизитах, которые не поместились в остальные поля; **необязателен**.
-- `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post"` — способ получения оригиналов договора (`"sbis"` — через ЭДО СБИС, `"kontur"` — через ЭДО Контур, `"russian_post"` — Почтой России; ключ `russian_post`, а не `postal`, чтобы совпадать с уже существующим `DELIVERY_LABELS` в yandex-function/index.js), больше не связан с наличием почтового адреса (см. ниже).
+- `organization.originalsDelivery` ∈ `"sbis" | "kontur" | "russian_post" | "other"` — способ получения оригиналов договора (`"sbis"` — через ЭДО СБИС, `"kontur"` — через ЭДО Контур, `"russian_post"` — Почтой России, `"other"` — другое; ключ `russian_post`, а не `postal`, чтобы совпадать с уже существующим `DELIVERY_LABELS` в yandex-function/index.js), больше не связан с наличием почтового адреса (см. ниже).
+- `organization.originalsDeliveryOther`: строка или `null` — уточнение способа при `originalsDelivery === "other"`; обязателен в этом случае, иначе `null`. Попадает в комментарий сделки как `Способ получения оригиналов: Другое — <текст>`.
 - `organization.postalAddress`: объект, **всегда присутствует и обязателен** (независимо от `originalsDelivery` — почтовый адрес собирается всегда, не только при доставке почтой).
   - `postalAddress.address` — сам адрес (улица/дом), обязателен вместе с `index`/`headFio`.
   - `postalAddress.orgName` — наименование учреждения-получателя; заполняется только при `applicantType === "legal_entity"`, иначе `null`.

@@ -151,7 +151,7 @@ const DOCUMENT_TYPE_LABELS = {
   municipal_contract: 'Муниципальный контракт',
 };
 const LAW_TYPE_LABELS = { '44-fz': '44-ФЗ', '223-fz': '223-ФЗ' };
-const DELIVERY_LABELS = { sbis: 'СБИС', kontur: 'Контур', russian_post: 'Почтой России' };
+const DELIVERY_LABELS = { sbis: 'СБИС', kontur: 'Контур', russian_post: 'Почтой России', other: 'Другое' };
 
 // xlsx-вложение содержит только данные слушателей (см. CONTRACT.md §2, колонки
 // фиксированы) — реквизиты организации/условия договора в него не попадают.
@@ -213,7 +213,10 @@ function buildCommentText(organization, listeners, coursesSummary, submittedAt) 
 
   lines.push('');
   lines.push(
-    `Способ получения оригиналов: ${DELIVERY_LABELS[organization.originalsDelivery] || organization.originalsDelivery}`
+    `Способ получения оригиналов: ${DELIVERY_LABELS[organization.originalsDelivery] || organization.originalsDelivery}` +
+      (organization.originalsDelivery === 'other' && organization.originalsDeliveryOther
+        ? ` — ${organization.originalsDeliveryOther}`
+        : '')
   );
   if (organization.postalAddress) {
     const p = organization.postalAddress;
@@ -272,6 +275,9 @@ function validateSubmitPayload(payload) {
   const requiredContactFields = ['headFio', 'originalsDelivery'];
   for (const field of requiredContactFields) {
     if (!org[field]) return `missing_organization.${field}`;
+  }
+  if (org.originalsDelivery === 'other' && !org.originalsDeliveryOther) {
+    return 'missing_organization.originalsDeliveryOther';
   }
 
   // Почтовый адрес больше не завязан на originalsDelivery — форма всегда его

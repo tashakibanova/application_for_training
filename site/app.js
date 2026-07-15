@@ -182,6 +182,7 @@ function init() {
   mirrorPostalIndex();
   wireFlEmployment();
   wirePostalHeadFioSelfCheck();
+  wireOriginalsDeliveryOther();
   wireCourseModal();
   wireMetricsTracking();
 
@@ -480,6 +481,22 @@ function wirePostalHeadFioSelfCheck() {
   });
 
   update();
+}
+
+// Переключает видимость поля ручного уточнения при выборе "Другое" в
+// способе получения оригиналов договора (см. wireListenerDateSelect() —
+// тот же паттерн для дат обучения).
+function wireOriginalsDeliveryOther() {
+  const select = document.getElementById('org-originals-delivery');
+  const field = document.getElementById('org-originals-delivery-other-field');
+  const input = document.getElementById('org-originals-delivery-other');
+  if (!select || !field || !input) return;
+
+  select.addEventListener('change', () => {
+    field.hidden = select.value !== 'other';
+    if (select.value !== 'other') input.value = '';
+    recompute();
+  });
 }
 
 function mirrorPostalOrgName() {
@@ -1529,6 +1546,12 @@ function validateForm() {
 
   const originalsDelivery = document.getElementById('org-originals-delivery');
   if (!originalsDelivery.value) markInvalid(originalsDelivery, errors, 'Выберите способ получения оригиналов договора.');
+  if (originalsDelivery.value === 'other') {
+    const originalsDeliveryOther = document.getElementById('org-originals-delivery-other');
+    if (!originalsDeliveryOther.value.trim()) {
+      markInvalid(originalsDeliveryOther, errors, 'Уточните способ получения оригиналов договора.');
+    }
+  }
 
   // Почтовый адрес больше не завязан на способ получения оригиналов — блок
   // всегда виден в форме, поэтому и проверяется всегда, а не только при
@@ -1723,6 +1746,9 @@ function buildPayload() {
   const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
   const comment = document.getElementById('org-comment').value.trim();
   const originalsDelivery = document.getElementById('org-originals-delivery').value;
+  const originalsDeliveryOther = originalsDelivery === 'other'
+    ? document.getElementById('org-originals-delivery-other').value.trim()
+    : null;
 
   const organization = {
     applicantType,
@@ -1765,6 +1791,7 @@ function buildPayload() {
     phone: isIndividual ? null : normalizePhone(document.getElementById('org-phone').value),
     email: isIndividual ? null : document.getElementById('org-email').value.trim(),
     originalsDelivery,
+    originalsDeliveryOther,
     comment: comment || null,
   };
 
