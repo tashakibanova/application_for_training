@@ -2166,6 +2166,7 @@ function showSuccessScreen() {
   // заполнять больше нечего, показывать "100%" незачем.
   document.getElementById('progress-side').hidden = true;
   document.getElementById('appbar-progress').hidden = true;
+  document.getElementById('draft-restored-notice').hidden = true;
   document.getElementById('success-screen').hidden = false;
   document.getElementById('success-screen').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
