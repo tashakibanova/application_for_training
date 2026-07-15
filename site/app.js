@@ -40,6 +40,12 @@ const state = {
   submittedAt: null,
   trackSent: false,
   submittedSuccessfully: false,
+  // true во время программного восстановления черновика — автосохранение (см.
+  // wireDraftAutosave()) в этот момент пропускает saveDraft(), иначе события
+  // change/input, которые сама же реставрация диспатчит для переключения
+  // видимости полей, писали бы в localStorage промежуточное, ещё неполное
+  // состояние формы.
+  restoringDraft: false,
 };
 
 /* =====================================================================
@@ -196,8 +202,9 @@ function init() {
 
   wireTheme();
   wireProgress();
+  wireDraftRestoredNotice();
 
-  loadCourses();
+  loadCourses().then(() => wireDraftAutosave());
 }
 
 /* =====================================================================
@@ -350,9 +357,15 @@ async function loadCourses() {
     console.error('Не удалось загрузить course-dates.json:', err);
   }
 
-  // Всегда добавляем первую строку слушателя, даже если каталог пуст —
-  // пользователь всё равно должен увидеть форму.
-  addListenerRow();
+  // Восстанавливаем черновик, если он есть (нужен уже загруженный каталог —
+  // иначе выбор курса у слушателей восстановить нечем), иначе — как раньше,
+  // всегда добавляем первую пустую строку слушателя.
+  const draft = loadDraft();
+  if (draft) {
+    restoreDraft(draft);
+  } else {
+    addListenerRow();
+  }
 }
 
 /* =====================================================================
@@ -1216,9 +1229,10 @@ function renderCourseResults() {
   });
 }
 
-function selectCourseForRow(course) {
-  const rowEl = courseModal.activeRow;
-  if (!rowEl) return;
+// Общая часть выбора курса для строки слушателя — используется и явным
+// выбором из попапа (selectCourseForRow), и восстановлением черновика
+// (restoreListenerRow), где попап вообще не открывается.
+function applyCourseToRow(rowEl, course) {
   const hiddenInput = rowEl.querySelector('.listener-course');
   const btnText = rowEl.querySelector('.listener-course-btn__text');
   const btn = rowEl.querySelector('.listener-course-btn');
@@ -1229,6 +1243,12 @@ function selectCourseForRow(course) {
   btn.classList.remove('field-invalid');
 
   onListenerCourseChange(rowEl);
+}
+
+function selectCourseForRow(course) {
+  const rowEl = courseModal.activeRow;
+  if (!rowEl) return;
+  applyCourseToRow(rowEl, course);
   closeCourseModal();
 }
 
@@ -1429,6 +1449,252 @@ function plural(n, one, few, many) {
   if (m10 === 1 && m100 !== 11) return one;
   if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
   return many;
+}
+
+/* =====================================================================
+ * Черновик формы в localStorage — переживает перезагрузку страницы до
+ * отправки. Хранится «сырыми» значениями полей (без нормализации digits-only
+ * и т.п., как в buildPayload()) — так восстановление один в один возвращает
+ * то, что пользователь напечатал, а не отформатированное представление.
+ * ===================================================================== */
+
+const DRAFT_STORAGE_KEY = 'zayavkaDraftV1';
+// Старше суток — не подставляем: скорее всего, уже неактуально (сменился
+// прайс/каталог, пользователь просто забыл про старую вкладку и т.п.).
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+// Простые текстовые/select-поля, которые можно восстановить прямым
+// присваиванием .value — без сопутствующих обработчиков (автоподбор по ИНН/БИК
+// вешается на 'input' и в черновик не должен дёргаться заново при каждой
+// перезагрузке). Радио-группы, чекбоксы и select с видимость-переключателями
+// (applicantType, ikzRequired, originalsDelivery, fl-unemployed,
+// postal-headfio-selfcheck) обрабатываются отдельно в restoreDraft().
+const DRAFT_FIELD_IDS = [
+  'org-headfio', 'org-phone', 'org-email', 'org-comment',
+  'org-inn', 'org-kpp', 'org-fullname', 'org-address',
+  'org-bank-name', 'org-bik', 'org-corr-account', 'org-settlement-account', 'org-personal-account', 'org-bank-extra',
+  'org-document-type', 'org-ikz-number', 'org-funding-source',
+  'fl-headfio', 'fl-inn', 'fl-workplace',
+  'org-originals-delivery', 'org-originals-delivery-other',
+  'postal-index', 'postal-address', 'postal-orgname', 'postal-headfio',
+];
+
+function buildDraft() {
+  const applicantChecked = document.querySelector('input[name="applicantType"]:checked');
+  const lawTypeChecked = document.querySelector('input[name="lawType"]:checked');
+  const ikzChecked = document.querySelector('input[name="ikzRequired"]:checked');
+  const postalSelfCheck = document.getElementById('postal-headfio-selfcheck');
+
+  const fields = {};
+  DRAFT_FIELD_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) fields[id] = el.value;
+  });
+
+  const listeners = Array.from(document.querySelectorAll('.listener-row')).map((row) => {
+    const reasonChecked = row.querySelector('.listener-reason:checked');
+    const selfFioCheck = row.querySelector('.listener-self-fio-check');
+    return {
+      courseId: row.querySelector('.listener-course').value || null,
+      dateSelectValue: row.querySelector('.listener-date-select').value || null,
+      dateManualValue: row.querySelector('.listener-date-manual').value || null,
+      fio: row.querySelector('.listener-fio').value,
+      email: row.querySelector('.listener-email').value,
+      phone: row.querySelector('.listener-phone').value,
+      position: row.querySelector('.listener-position').value,
+      reason: reasonChecked ? reasonChecked.value : null,
+      selfFio: !!(selfFioCheck && selfFioCheck.checked),
+    };
+  });
+
+  return {
+    savedAt: new Date().toISOString(),
+    // dealId, пришедший из ?deal= в URL, восстанавливать не нужно — он и так
+    // будет в адресе при следующем открытии той же ссылки.
+    dealId: state.dealIdFromUrl ? null : state.dealId,
+    applicantType: applicantChecked ? applicantChecked.value : null,
+    lawType: lawTypeChecked ? lawTypeChecked.value : null,
+    ikzRequired: ikzChecked ? ikzChecked.value : null,
+    flUnemployed: document.getElementById('fl-unemployed').checked,
+    postalHeadFioSelfCheck: postalSelfCheck ? postalSelfCheck.checked : true,
+    fields,
+    listeners,
+  };
+}
+
+function saveDraft() {
+  if (state.restoringDraft || state.submittedSuccessfully) return;
+  try {
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(buildDraft()));
+  } catch (err) {
+    // localStorage бывает недоступен (приватный режим, забита квота) —
+    // черновик просто не сохранится, саму форму это не должно ломать.
+    console.error('Не удалось сохранить черновик формы:', err);
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch (err) {
+    /* нечего чистить, если localStorage недоступен */
+  }
+}
+
+function loadDraft() {
+  let raw;
+  try {
+    raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+  } catch (err) {
+    return null;
+  }
+  if (!raw) return null;
+
+  let draft;
+  try {
+    draft = JSON.parse(raw);
+  } catch (err) {
+    clearDraft();
+    return null;
+  }
+  if (!draft || typeof draft !== 'object') return null;
+
+  const savedAt = Date.parse(draft.savedAt);
+  if (!Number.isFinite(savedAt) || Date.now() - savedAt > DRAFT_MAX_AGE_MS) {
+    clearDraft();
+    return null;
+  }
+  return draft;
+}
+
+function restoreListenerRow(rowEl, listenerDraft) {
+  const course = listenerDraft.courseId && state.courses.find((c) => c.id === listenerDraft.courseId);
+  if (course) {
+    applyCourseToRow(rowEl, course);
+
+    const dateSelect = rowEl.querySelector('.listener-date-select');
+    const dateManual = rowEl.querySelector('.listener-date-manual');
+    const hasOption = listenerDraft.dateSelectValue
+      && Array.from(dateSelect.options).some((o) => o.value === listenerDraft.dateSelectValue);
+    // Если сохранённый диапазон дат уже пропал из расписания (даты прошли) —
+    // оставляем поле пустым, пользователь выберет заново; это единственный
+    // случай частичной потери данных при восстановлении, и он ожидаем.
+    if (hasOption) {
+      dateSelect.value = listenerDraft.dateSelectValue;
+      if (listenerDraft.dateSelectValue === 'other') {
+        dateManual.hidden = false;
+        dateManual.value = listenerDraft.dateManualValue || '';
+      }
+    }
+  }
+
+  rowEl.querySelector('.listener-fio').value = listenerDraft.fio || '';
+  rowEl.querySelector('.listener-email').value = listenerDraft.email || '';
+  rowEl.querySelector('.listener-phone').value = listenerDraft.phone || '';
+  const positionInput = rowEl.querySelector('.listener-position');
+  if (positionInput) positionInput.value = listenerDraft.position || '';
+  if (listenerDraft.reason) {
+    const reasonRadio = rowEl.querySelector('.listener-reason[value="' + listenerDraft.reason + '"]');
+    if (reasonRadio) reasonRadio.checked = true;
+  }
+  const selfFioCheck = rowEl.querySelector('.listener-self-fio-check');
+  if (selfFioCheck) selfFioCheck.checked = !!listenerDraft.selfFio;
+}
+
+// Применяет сохранённый черновик к форме. Вызывается из loadCourses() — уже
+// после того, как загружен каталог курсов (нужен для восстановления выбора
+// курса у слушателей) и добавлена стартовая пустая строка слушателя (которую
+// эта функция удаляет и пересоздаёт под сохранённые данные).
+function restoreDraft(draft) {
+  state.restoringDraft = true;
+
+  // applicantType — первым: от него зависит видимость блоков ЮЛ/ФЛ и часть
+  // остальных переключателей (см. wirePostalHeadFioSelfCheck).
+  if (draft.applicantType) {
+    const applicantRadio = document.querySelector(
+      'input[name="applicantType"][value="' + draft.applicantType + '"]'
+    );
+    if (applicantRadio) {
+      applicantRadio.checked = true;
+      applicantRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  Object.keys(draft.fields || {}).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = draft.fields[id];
+  });
+
+  if (draft.lawType) {
+    const lawRadio = document.querySelector('input[name="lawType"][value="' + draft.lawType + '"]');
+    if (lawRadio) lawRadio.checked = true;
+  }
+
+  if (draft.ikzRequired) {
+    const ikzRadio = document.querySelector('input[name="ikzRequired"][value="' + draft.ikzRequired + '"]');
+    if (ikzRadio) {
+      ikzRadio.checked = true;
+      ikzRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  if (draft.flUnemployed) {
+    const unemployedCheckbox = document.getElementById('fl-unemployed');
+    if (unemployedCheckbox) {
+      unemployedCheckbox.checked = true;
+      unemployedCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  // Флажок "Получатель — это я" по умолчанию уже отмечен разметкой — событие
+  // нужно только когда черновик его явно снимал.
+  if (draft.postalHeadFioSelfCheck === false) {
+    const postalSelfCheck = document.getElementById('postal-headfio-selfcheck');
+    if (postalSelfCheck) {
+      postalSelfCheck.checked = false;
+      postalSelfCheck.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  const originalsSelect = document.getElementById('org-originals-delivery');
+  if (originalsSelect) originalsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+  if (!state.dealIdFromUrl && draft.dealId) {
+    const dealInput = document.getElementById('deal-id-input');
+    if (dealInput) {
+      dealInput.value = draft.dealId;
+      dealInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  document.querySelectorAll('.listener-row').forEach((row) => row.remove());
+  const listenerDrafts = draft.listeners && draft.listeners.length ? draft.listeners : [null];
+  listenerDrafts.forEach((listenerDraft) => {
+    const rowEl = addListenerRow();
+    if (listenerDraft) restoreListenerRow(rowEl, listenerDraft);
+  });
+
+  state.restoringDraft = false;
+  recompute();
+
+  const notice = document.getElementById('draft-restored-notice');
+  if (notice) notice.hidden = false;
+}
+
+function wireDraftAutosave() {
+  const form = document.getElementById('application-form');
+  if (!form) return;
+  const debouncedSave = debounce(saveDraft, 400);
+  ['input', 'change'].forEach((evt) => form.addEventListener(evt, debouncedSave));
+}
+
+function wireDraftRestoredNotice() {
+  const dismissBtn = document.getElementById('draft-restored-dismiss');
+  if (!dismissBtn) return;
+  dismissBtn.addEventListener('click', () => {
+    clearDraft();
+    location.reload();
+  });
 }
 
 /* =====================================================================
@@ -1879,6 +2145,7 @@ async function handleSubmit(event) {
     }
 
     state.submittedSuccessfully = true;
+    clearDraft();
     showSuccessScreen();
   } catch (err) {
     console.error('Submit failed:', err);
